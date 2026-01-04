@@ -125,9 +125,17 @@ class LanceDBStore:
         
         if table_name not in self.db.table_names():
             # Create empty table with schema
+            import logging
+            logger = logging.getLogger("uvicorn.error")
+            logger.info(f"DEBUG: Creating table {table_name} with schema: {self.SCHEMA}")
             return self.db.create_table(table_name, schema=self.SCHEMA)
         
-        return self.db.open_table(table_name)
+        tbl = self.db.open_table(table_name)
+        # Verify schema
+        import logging
+        logger = logging.getLogger("uvicorn.error") 
+        logger.info(f"DEBUG: Opened table {table_name} with schema: {tbl.schema}")
+        return tbl
     
     # ========================================
     # Collection Management

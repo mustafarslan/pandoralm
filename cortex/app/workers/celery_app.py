@@ -100,6 +100,7 @@ celery_app.conf.update(
         # Cron tasks - scheduled maintenance
         "cron.regenerate_stale_communities": {"queue": "cron"},
         "cron.trigger_community_regeneration": {"queue": "cron"},
+        "cron.purge_old_chat_messages": {"queue": "cron"},
         
         # Default queues for other tasks
         "app.workers.tasks.indexing.*": {"queue": "indexing"},
@@ -165,6 +166,12 @@ celery_app.conf.update(
         "regenerate-stale-communities-nightly": {
             "task": "cron.regenerate_stale_communities",
             "schedule": crontab(hour=3, minute=0),
+            "kwargs": {},
+        },
+        # Chat message retention purge (4 AM UTC)
+        "purge-old-chat-messages-nightly": {
+            "task": "cron.purge_old_chat_messages",
+            "schedule": crontab(hour=4, minute=0),
             "kwargs": {},
         },
     },

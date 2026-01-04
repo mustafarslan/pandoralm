@@ -237,3 +237,81 @@ def trigger_community_regeneration(
         workspace_id=workspace_id,
         batch_size=len(community_ids) if community_ids else 100,
     )
+
+
+# =============================================================================
+# Chat Message Retention Policy (Daily at 4 AM UTC)
+# =============================================================================
+
+@celery_app.task(
+    bind=True,
+    name="cron.purge_old_chat_messages",
+    soft_time_limit=600,   # 10 min soft limit
+    time_limit=1200,       # 20 min hard limit
+)
+def purge_old_chat_messages(self) -> Dict[str, Any]:
+    """
+    Enterprise retention policy - purges chat messages older than CHAT_RETENTION_DAYS.
+    
+    Why: Enterprise compliance (GDPR, HIPAA) and storage management require
+    automatic data lifecycle management. Messages older than the retention
+    period are permanently deleted.
+    
+    Configuration:
+        CHAT_RETENTION_DAYS: Number of days to keep messages (default: 30)
+        Set to 0 to disable automatic purging.
+    
+    Returns:
+        Dict with purge results
+    """
+    import os
+    import httpx
+    from datetime import datetime, timedelta
+    
+    retention_days = int(os.getenv("CHAT_RETENTION_DAYS", "30"))
+    
+    if retention_days <= 0:
+        logger.info("[Cron] Chat retention disabled (CHAT_RETENTION_DAYS <= 0)")
+        return {"status": "disabled", "messages_deleted": 0}
+    
+    cutoff_date = datetime.utcnow() - timedelta(days=retention_days)
+    
+    logger.info(
+        f"[Cron] Purging chat messages older than {retention_days} days "
+        f"(before {cutoff_date.isoformat()})"
+    )
+    
+    results = {
+        "retention_days": retention_days,
+        "cutoff_date": cutoff_date.isoformat(),
+        "messages_deleted": 0,
+        "errors": [],
+    }
+    
+    try:
+        # Call Core API to purge messages
+        # This keeps the database logic in Core (Prisma) rather than duplicating
+        core_url = os.getenv("CORE_API_URL", "http://pandora-core:3001")
+        
+        response = httpx.post(
+            f"{core_url}/api/system/purge-old-chats",
+            json={"cutoff_date": cutoff_date.isoformat()},
+            timeout=300.0,
+            headers={"Authorization": f"Bearer {os.getenv('SYSTEM_API_KEY', '')}"}
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            results["messages_deleted"] = data.get("deleted_count", 0)
+            logger.info(f"[Cron] Purged {results['messages_deleted']} old chat messages")
+        else:
+            error_msg = f"Core API returned {response.status_code}"
+            results["errors"].append(error_msg)
+            logger.error(f"[Cron] {error_msg}")
+            
+    except Exception as e:
+        error_msg = f"Failed to purge chats: {str(e)}"
+        results["errors"].append(error_msg)
+        logger.error(f"[Cron] {error_msg}")
+    
+    return results

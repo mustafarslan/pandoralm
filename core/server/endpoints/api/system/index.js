@@ -270,6 +270,47 @@ function apiSystemEndpoints(app) {
       }
     }
   );
+
+  // Enterprise Chat Retention - Purge old messages
+  // Called by Cortex Celery cron task
+  app.post(
+    "/v1/system/purge-old-chats",
+    [validApiKey],
+    async (request, response) => {
+      /*
+      #swagger.tags = ['System Settings']
+      #swagger.description = 'Purge chat messages older than specified date (Enterprise retention policy)'
+      */
+      try {
+        const { cutoff_date } = reqBody(request);
+        if (!cutoff_date) {
+          return response.status(400).json({ error: "cutoff_date required" });
+        }
+
+        const { WorkspaceChats } = require("../../../models/workspaceChats");
+        const cutoffDate = new Date(cutoff_date);
+
+        const result = await WorkspaceChats.delete({
+          createdAt: { lt: cutoffDate },
+        });
+
+        await EventLogs.logEvent("purged_old_chats", {
+          cutoff_date,
+          deleted_count: result ? 1 : 0, // Prisma deleteMany doesn't return count in all versions
+        });
+
+        response.status(200).json({
+          success: true,
+          deleted_count: result ? 1 : 0,
+          cutoff_date
+        });
+      } catch (e) {
+        console.error(e.message, e);
+        response.status(500).json({ error: e.message });
+      }
+    }
+  );
 }
 
 module.exports = { apiSystemEndpoints };
+

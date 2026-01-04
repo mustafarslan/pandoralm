@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import httpx
+import json
+import os
 
 from app.services.graphrag import get_query_router, QueryMode
 from app.services.agent.agent import ResearchAgent
@@ -105,11 +108,124 @@ async def event_generator(request: StreamRequest):
             
             # --------------------------------------
 
-            # Simulate streaming generation
-            answer = context.content
-            chunk_size = 50
-            for i in range(0, len(answer), chunk_size):
-                yield StreamProtocol.text_chunk(answer[i:i+chunk_size])
+            # --- Glass Box LLM Response Generation (RAG) ---
+            yield StreamProtocol.thought("GENERATION", "Synthesizing answer from context...", "SYSTEM_2")
+            
+            # Build numbered source context for citations
+            numbered_sources = []
+            for idx, source in enumerate(context.sources, 1):
+                source_text = source.get("content", "")[:500]
+                numbered_sources.append(f"[{idx}] {source_text}")
+            
+            context_with_citations = "\n\n".join(numbered_sources) if numbered_sources else context.content[:8000]
+            
+            # Enhanced RAG prompt with citation instructions
+            system_prompt = """You are PandoraLM, a transparent AI assistant that explains its reasoning.
+
+IMPORTANT: Before answering, ALWAYS show your step-by-step reasoning inside <think></think> tags.
+This helps users understand HOW you arrived at your answer.
+
+INSTRUCTIONS:
+1. First, analyze the context in <think> tags - identify key facts, connections, and relevance to the question.
+2. Answer the user's question based ONLY on the provided context.
+3. When citing information, use the format [1], [2], etc. to reference specific sources.
+4. If the context doesn't contain relevant information, say "I don't have enough context to answer this."
+5. Be concise but comprehensive.
+6. Use markdown formatting for clarity (headers, bullet points, bold for key terms).
+
+OUTPUT FORMAT:
+<think>
+[Your reasoning process here - analyze the question, identify relevant sources, plan your answer]
+</think>
+
+[Your actual answer with citations]"""
+            
+            user_prompt = f"""## Context Sources:
+{context_with_citations}
+
+## User Question:
+{request.query}
+
+## Your Response (with citations):"""
+            
+            # Call Ollama for generation
+            ollama_url = os.getenv("LLM_SOLVER_API_BASE", "http://host.docker.internal:11434")
+            model = os.getenv("LLM_SOLVER_MODEL", "deepseek-r1:8b")
+            
+            # State machine for parsing <think> blocks
+            buffer = ""
+            in_think_block = False
+            think_content = ""
+            
+            async with httpx.AsyncClient(timeout=180.0) as client:
+                async with client.stream(
+                    "POST",
+                    f"{ollama_url}/api/generate",
+                    json={
+                        "model": model,
+                        "prompt": user_prompt,
+                        "system": system_prompt,
+                        "stream": True,
+                    }
+                ) as response:
+                    async for line in response.aiter_lines():
+                        if line:
+                            try:
+                                data = json.loads(line)
+                                if "response" in data:
+                                    token = data["response"]
+                                    buffer += token
+                                    
+                                    # Parse <think> blocks for Glass Box transparency
+                                    while True:
+                                        if not in_think_block:
+                                            # Look for opening <think> tag
+                                            if "<think>" in buffer:
+                                                idx = buffer.index("<think>")
+                                                # Emit any text before the tag
+                                                if idx > 0:
+                                                    yield StreamProtocol.text_chunk(buffer[:idx])
+                                                buffer = buffer[idx + 7:]  # Skip <think>
+                                                in_think_block = True
+                                                think_content = ""
+                                            else:
+                                                # No tag found, emit buffer (keeping last 10 chars for partial tag detection)
+                                                if len(buffer) > 10:
+                                                    yield StreamProtocol.text_chunk(buffer[:-10])
+                                                    buffer = buffer[-10:]
+                                                break
+                                        else:
+                                            # Inside think block, look for closing </think>
+                                            if "</think>" in buffer:
+                                                idx = buffer.index("</think>")
+                                                think_content += buffer[:idx]
+                                                buffer = buffer[idx + 8:]  # Skip </think>
+                                                in_think_block = False
+                                                # Emit thought as Glass Box event
+                                                yield StreamProtocol.thought("REASONING", think_content.strip(), "SYSTEM_2")
+                                            else:
+                                                # Accumulate think content
+                                                think_content += buffer
+                                                buffer = ""
+                                                break
+                                                
+                            except json.JSONDecodeError:
+                                continue
+                    
+                    # Flush remaining buffer
+                    if buffer and not in_think_block:
+                        yield StreamProtocol.text_chunk(buffer)
+            
+            # --- Emit Citations ---
+            if context.sources:
+                yield StreamProtocol.thought("CITATIONS", f"Found {len(context.sources)} source documents", "SYSTEM_1")
+                for idx, source in enumerate(context.sources[:5], 1):
+                    yield StreamProtocol.citation(
+                        source_id=source.get("document_id", f"source-{idx}"),
+                        text=source.get("content", "")[:150] + "...",
+                        page=None
+                    )
             
     except Exception as e:
         yield StreamProtocol.error_chunk(str(e))
+
