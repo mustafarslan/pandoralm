@@ -1,10 +1,10 @@
-<div style="text-align: center; padding-left: 20%;">
+<div align="center">
   <table width="100%">
     <tr>
-      <td style="padding: 30px; background-color: white;">
-        <img  src="./core/frontend/public/brand/logo-symbol.svg" alt="PandoraLM Symbol" width="20%">
+      <td align="center" bgcolor="white" style="padding: 30px;">
+        <img src="./core/frontend/public/brand/logo-symbol.svg" alt="PandoraLM Symbol" width="80">
         <br>
-        <img style="text-align: center; padding-left: 15%;" src="./core/frontend/public/brand/logo-wordmark.svg" alt="PandoraLM" width="100%">
+        <img src="./core/frontend/public/brand/logo-wordmark.svg" alt="PandoraLM" width="280">
       </td>
     </tr>
   </table>
