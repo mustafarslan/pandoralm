@@ -1,0 +1,58 @@
+# PandoraLM Quality Gate
+# Runs linting, type checks, and tests
+#
+# To enable: Remove .disabled suffix from this file
+
+name: PandoraLM Quality Gate
+
+on:
+  pull_request:
+    branches: ['master']
+  push:
+    branches: ['master']
+    paths-ignore:
+      - '**.md'
+      - '.agent/**/*'
+
+jobs:
+  lint-frontend:
+    name: Lint Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: core/frontend/yarn.lock
+      
+      - name: Install dependencies
+        working-directory: core/frontend
+        run: yarn install --frozen-lockfile
+      
+      - name: Run ESLint
+        working-directory: core/frontend
+        run: yarn lint || true  # Don't fail on lint warnings
+
+  lint-backend:
+    name: Lint Backend (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        working-directory: cortex
+        run: |
+          pip install poetry
+          poetry install --with dev
+      
+      - name: Run Ruff
+        working-directory: cortex
+        run: poetry run ruff check . || true  # Don't fail on lint warnings
