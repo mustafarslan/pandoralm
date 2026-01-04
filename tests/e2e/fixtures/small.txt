@@ -1,0 +1,10 @@
+Network Configuration Document
+=============================
+
+Server IP Address: 192.168.1.100
+Subnet Mask: 255.255.255.0
+Gateway: 192.168.1.1
+DNS Server: 8.8.8.8
+
+This is a simple test document for Vector RAG testing.
+The IP address mentioned above should be easily retrievable via semantic search.

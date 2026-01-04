@@ -1,0 +1,116 @@
+name: Quality Gate - RAG Evaluation
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'cortex/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+env:
+  CORTEX_API_URL: http://localhost:8000
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+jobs:
+  evaluate:
+    name: RAG Triad Evaluation
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pandora
+          POSTGRES_PASSWORD: pandora
+          POSTGRES_DB: pandora
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      neo4j:
+        image: neo4j:5.16-community
+        env:
+          NEO4J_AUTH: neo4j/pandora123
+        ports:
+          - 7474:7474
+          - 7687:7687
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install Cortex Dependencies
+        working-directory: ./cortex
+        run: |
+          pip install -e .
+          pip install deepeval requests
+      
+      - name: Start Cortex API
+        working-directory: ./cortex
+        run: |
+          # Start in background
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          
+          # Wait for API to be ready
+          for i in {1..30}; do
+            curl -s http://localhost:8000/health && break
+            echo "Waiting for API..."
+            sleep 2
+          done
+        env:
+          DATABASE_URL: postgresql://pandora:pandora@localhost:5432/pandora
+          REDIS_URL: redis://localhost:6379/0
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: pandora123
+          LLM_PROVIDER: openai
+          LLM_ROUTER_MODEL: gpt-4o-mini
+          LLM_SOLVER_MODEL: gpt-4o-mini
+      
+      - name: Run DeepEval Quality Gate
+        run: python tests/evaluation/run_evals.py
+        env:
+          CORTEX_API_URL: http://localhost:8000
+      
+      - name: Upload Evaluation Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-report
+          path: |
+            tests/evaluation/*.html
+            tests/evaluation/*.json
+          retention-days: 30
+      
+      - name: Comment on PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ **Quality Gate Failed**: RAG evaluation metrics dropped below threshold. Please review the evaluation report in the workflow artifacts.'
+            })

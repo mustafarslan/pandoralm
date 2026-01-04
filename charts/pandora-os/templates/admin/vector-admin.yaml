@@ -1,0 +1,129 @@
+---
+# Vector Admin Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pandora-os.fullname" . }}-vector-admin
+  labels:
+    {{- include "pandora-os.labels" . | nindent 4 }}
+    app.kubernetes.io/component: vector-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "pandora-os.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: vector-admin
+  template:
+    metadata:
+      labels:
+        {{- include "pandora-os.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: vector-admin
+    spec:
+      containers:
+        - name: vector-admin
+          image: mintplexlabs/vector-admin:master
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          env:
+            # Database Connection (Vector Admin's internal DB)
+            - name: DATABASE_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pandora-os.fullname" . }}-secrets
+                  key: vector-admin-db-url
+            # LanceDB Configuration (S3/MinIO)
+            - name: DATA_STORAGE_PROVIDER
+              value: "lancedb"
+            - name: LANCEDB_URI
+              value: {{ .Values.cortex.env.LANCEDB_URI | quote }}
+            - name: AWS_ENDPOINT_URL
+              value: {{ .Values.cortex.env.AWS_ENDPOINT_URL | quote }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pandora-os.fullname" . }}-secrets
+                  key: minio-access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pandora-os.fullname" . }}-secrets
+                  key: minio-secret-key
+            - name: AWS_REGION
+              value: "us-east-1"
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+
+---
+# Vector Admin Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pandora-os.fullname" . }}-vector-admin
+  labels:
+    {{- include "pandora-os.labels" . | nindent 4 }}
+    app.kubernetes.io/component: vector-admin
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3001
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "pandora-os.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: vector-admin
+
+---
+# Vector Admin Ingress (OAuth2-Proxy Protected)
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "pandora-os.fullname" . }}-vector-admin
+  labels:
+    {{- include "pandora-os.labels" . | nindent 4 }}
+    app.kubernetes.io/component: vector-admin
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: "https://$host/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://$host/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Groups"
+spec:
+  ingressClassName: {{ .Values.ingress.className | quote }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    - secretName: {{ (index .Values.ingress.tls 0).secretName }}
+      hosts:
+        - admin.{{ .Values.global.domain }}
+  {{- end }}
+  rules:
+    - host: admin.{{ .Values.global.domain }}
+      http:
+        paths:
+          - path: /vector
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "pandora-os.fullname" . }}-vector-admin
+                port:
+                  number: 3001
+{{- end }}

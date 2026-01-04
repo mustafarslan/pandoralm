@@ -1,0 +1,76 @@
+services:
+  pandora-core:
+    ports:
+      - "3002:3001"
+    entrypoint: [ "/bin/bash", "-c", "cd /app/server && npx prisma generate --schema=./prisma/schema.prisma && npx prisma db push --schema=./prisma/schema.prisma && node /app/server/index.js & node /app/collector/index.js & wait -n" ]
+    environment:
+      - DATABASE_URL=postgresql://pandora:pandora@postgres:5432/pandora?schema=application
+  minio:
+    image: minio/minio:RELEASE.2023-09-04T19-57-37Z
+    container_name: pandora-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    volumes:
+      - minio_data:/data
+    command: server --console-address ":9001" /data
+    networks:
+      - pandora-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  meeting-bot:
+    build:
+      context: ../../services/meeting-bot
+      dockerfile: ../../infra/docker/Dockerfile.meeting-bot
+    container_name: pandora-meeting-bot
+    restart: unless-stopped
+    ports:
+      - "3003:3002"
+    environment:
+      - PORT=3002
+      - REDIS_URL=redis://pandora-redis:6379
+      - S3_ENDPOINT=http://pandora-minio:9000
+      - S3_BUCKET=pandora-audio
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=minio
+      - AWS_SECRET_ACCESS_KEY=minio123
+    networks:
+      - pandora-network
+    shm_size: '2gb'
+    command: sh -c "mkdir -p /run/dbus && dbus-daemon --system --fork && npm run build && xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24' npm start"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+      - minio
+
+  audio-worker:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile.audio
+    container_name: pandora-audio-worker
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://pandora-redis:6379
+      - S3_ENDPOINT=http://pandora-minio:9000
+      - S3_BUCKET=pandora-audio
+      - AWS_ACCESS_KEY_ID=minio
+      - AWS_SECRET_ACCESS_KEY=minio123
+      - PYTHONPATH=/app:/app/cortex
+    volumes:
+      - ../../cortex:/app/cortex
+    networks:
+      - pandora-network
+    depends_on:
+      - redis
+      - minio
+
+volumes:
+  minio_data:

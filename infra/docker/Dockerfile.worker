@@ -1,0 +1,44 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    libmagic-dev \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry
+RUN pip install poetry
+
+# Copy dependency files
+COPY pyproject.toml README.md ./
+
+# Configure Poetry to not create virtual env (we're in container)
+RUN poetry config virtualenvs.create false
+
+# Copy application code
+COPY app/ ./app/
+COPY workers/ ./workers/
+
+# Install dependencies (without dev dependencies for production)
+RUN poetry install --without dev --no-interaction --no-ansi
+
+# Install Playwright browsers (specific to worker)
+RUN playwright install chromium
+RUN playwright install-deps chromium
+
+# Create storage directories
+RUN mkdir -p /app/storage/lancedb /app/storage/graphrag
+
+# Expose port (not really needed for worker but good for consistency)
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD celery -A app.workers.celery_app inspect ping || exit 1
+
+# Default command (can be overridden)
+CMD ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info"]

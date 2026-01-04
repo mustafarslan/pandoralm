@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pandora-migration-v2
+  namespace: pandora
+  labels:
+    app.kubernetes.io/name: pandora-migration
+spec:
+  ttlSecondsAfterFinished: 3600 # Clean up after 1 hour
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pandora-migration
+    spec:
+      containers:
+      - name: migration
+        image: pandoralm/cortex:latest # Use your actual image
+        imagePullPolicy: IfNotPresent
+        command: ["python", "/app/scripts/migrate_v1_to_v2.py"]
+        env:
+        - name: LANCEDB_URI
+          valueFrom:
+            configMapKeyRef:
+              name: pandora-os-env
+              key: LANCEDB_URI
+        - name: AWS_ENDPOINT_URL
+          valueFrom:
+            configMapKeyRef:
+              name: pandora-os-env
+              key: AWS_ENDPOINT_URL
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: pandora-os-secrets
+              key: MINIO_ROOT_USER
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: pandora-os-secrets
+              key: MINIO_ROOT_PASSWORD
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+      restartPolicy: Never
+  backoffLimit: 2

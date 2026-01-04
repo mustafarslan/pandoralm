@@ -1,0 +1,18 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: audio-worker-scaler
+  labels:
+    app: pandoralm
+spec:
+  scaleTargetRef:
+    name: audio-worker
+  minReplicaCount: 0
+  maxReplicaCount: 5
+  cooldownPeriod: 300
+  triggers:
+    - type: redis
+      metadata:
+        address: pandora-redis:6379
+        listName: audio_processing_queue
+        listLength: "1"

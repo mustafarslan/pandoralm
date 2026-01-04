@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-fast
+  labels:
+    app: pandora-cortex-worker
+    role: fast-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pandora-cortex-worker
+      role: fast-worker
+  template:
+    metadata:
+      labels:
+        app: pandora-cortex-worker
+        role: fast-worker
+    spec:
+      containers:
+      - name: worker
+        image: pandoralm-pandora-cortex:latest
+        imagePullPolicy: Never
+        command: ["/bin/sh", "-c"]
+        # Dedicated to 'fast_lane' queue. Low latency, high responsiveness.
+        args: ["celery -A app.workers.celery_app worker --loglevel=info -Q fast_lane -c 4 -n fast@%h"]
+        env:
+        - name: REDIS_URL
+          value: "redis://host.docker.internal:6379/0"
+        - name: CELERY_BROKER_URL
+          value: "redis://host.docker.internal:6379/0"
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://host.docker.internal:6379/1"
+        - name: NEO4J_URI
+          value: "bolt://host.docker.internal:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          value: "password"
+        - name: DATABASE_URL
+          value: "postgresql://user:password@host.docker.internal:5432/pandoralm"
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-embedding
+  labels:
+    app: pandora-cortex-worker
+    role: embedding-worker
+spec:
+  replicas: 0 # KEDA will scale this up from zero
+  selector:
+    matchLabels:
+      app: pandora-cortex-worker
+      role: embedding-worker
+  template:
+    metadata:
+      labels:
+        app: pandora-cortex-worker
+        role: embedding-worker
+    spec:
+      containers:
+      - name: worker
+        image: pandoralm-pandora-cortex:latest
+        imagePullPolicy: Never
+        command: ["/bin/sh", "-c"]
+        # Dedicated to 'embedding' queue. Heavy batch processing. High concurrency.
+        args: ["celery -A app.workers.celery_app worker --loglevel=info -Q embedding -c 8 -n embedding@%h"]
+        env:
+        - name: REDIS_URL
+          value: "redis://host.docker.internal:6379/0"
+        - name: CELERY_BROKER_URL
+          value: "redis://host.docker.internal:6379/0"
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://host.docker.internal:6379/1"
+        - name: NEO4J_URI
+          value: "bolt://host.docker.internal:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          value: "password"
+        - name: DATABASE_URL
+          value: "postgresql://user:password@host.docker.internal:5432/pandoralm"
+        - name: PANDORA_WORKER_THREADS
+          value: "4"
+        resources:
+          limits:
+            memory: "8Gi"
+            cpu: "4000m"
+            # nvidia.com/gpu: 1  # Uncomment for GPU nodes
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"

@@ -1,0 +1,14 @@
+[
+  {
+    "input": "What is the effective date of the PandoraLM Engineering Policy?",
+    "expected_output": "The effective date is 2025-01-01.",
+    "context": "Effective Date: 2025-01-01",
+    "type": "factual"
+  },
+  {
+    "input": "Does the Remote Work Policy allow for exceptions to the standard 100% remote work?",
+    "expected_output": "Yes, engineers can work remotely 100% of the time unless granted a 'Digital Nomad' exception which allows up to 90 days per year outside the country of employment.",
+    "context": "Remote Work Policy",
+    "type": "thematic"
+  }
+]

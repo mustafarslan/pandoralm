@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pandora-audio-worker
+  labels:
+    app: pandora-audio-worker
+    component: worker
+spec:
+  replicas: 0  # KEDA will scale this
+  selector:
+    matchLabels:
+      app: pandora-audio-worker
+  template:
+    metadata:
+      labels:
+        app: pandora-audio-worker
+    spec:
+      tolerations:
+        - key: "accelerator"
+          value: "gpu"
+          effect: "NoSchedule"
+      containers:
+        - name: audio-worker
+          image: pandora-audio-worker:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              memory: "8Gi"
+            requests:
+              memory: "4Gi"
+              cpu: "1"
+          env:
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pandora-secrets
+                  key: redis-url
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: pandora-config
+                  key: minio-endpoint
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pandora-secrets
+                  key: minio-access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pandora-secrets
+                  key: minio-secret-key
+            - name: POSTGRES_URI
+              valueFrom:
+                secretKeyRef:
+                  name: pandora-secrets
+                  key: postgres-uri
+            - name: LANCEDB_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: pandora-config
+                  key: lancedb-uri
+            - name: HUGGINGFACE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: pandora-secrets
+                  key: huggingface-token
+                  optional: true
+          volumeMounts:
+            - name: model-cache
+              mountPath: /root/.cache
+      volumes:
+        - name: model-cache
+          emptyDir:
+            sizeLimit: "10Gi"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: pandora-audio-worker-scaler
+spec:
+  scaleTargetRef:
+    name: pandora-audio-worker
+  minReplicaCount: 0
+  maxReplicaCount: 5
+  cooldownPeriod: 300
+  triggers:
+    - type: redis
+      metadata:
+        address: redis:6379
+        listName: audio_processing_queue
+        listLength: "1"

@@ -1,0 +1,189 @@
+# Default values for pandora-os.
+
+# Global Settings
+global:
+  domain: pandora.local
+  env: production
+
+# Application: Core (Frontend & Gateway)
+core:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/mustafarslan/pandora-core
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 3001
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# Application: Cortex (Reasoning Engine)
+cortex:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/mustafarslan/pandora-cortex
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  env:
+    # S3 / MinIO Configuration
+    LANCEDB_URI: "s3://pandora-vectors"
+    LANCEDB_TABLE: "vectors_v2" # Switchover to V2 table (Knowledge Layers)
+    AWS_ENDPOINT_URL: "http://pandora-os-minio:9000"
+    # LLM Settings
+    LLM_PROVIDER: "ollama"
+    LLM_ROUTER_MODEL: "gemma3:1b"
+    LLM_SOLVER_MODEL: "deepseek-r1:8b"
+
+# Background Workers (Celery)
+worker:
+  image:
+    repository: ghcr.io/mustafarslan/pandora-cortex
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 10
+    pollingInterval: 30
+    cooldownPeriod: 300
+    triggers:
+      listLength: 10
+
+# Database: PostgreSQL
+postgres:
+  image:
+    tag: "16-alpine"
+  storage:
+    size: 10Gi
+    class: standard
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+
+# Database: Neo4j
+neo4j:
+  image:
+    tag: "5.16-community"
+  storage:
+    size: 20Gi
+    class: standard
+  resources:
+    limits: 
+       memory: "2Gi"
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+
+# Database: Redis
+redis:
+  image:
+    tag: "7-alpine"
+  storage:
+    size: 5Gi
+    class: standard
+
+# Dependency: MinIO (S3 Compatible Storage)
+minio:
+  enabled: true
+  replicas: 4
+  resources:
+    requests:
+      memory: 1Gi
+  persistence:
+    size: 50Gi
+
+# Dependency: KEDA (Autoscaling)
+keda:
+  enabled: true
+
+# Observability Stack
+monitoring:
+  enabled: true
+
+# Dependency Configuration
+kube-prometheus-stack:
+  grafana:
+    enabled: true
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+  prometheus:
+    prometheusSpec:
+      serviceMonitorSelectorNilUsesHelmValues: false
+      serviceMonitorSelector:
+        matchLabels:
+          release: pandora
+
+tempo:
+  enabled: true
+  persistence:
+    enabled: false # Use memory for MVP/Local
+
+opentelemetry-collector:
+  mode: deployment
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    exporters:
+      otlp:
+        endpoint: "pandora-tempo:4317"
+        tls:
+          insecure: true
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [otlp]
+
+# Ingress Controller (NGINX)
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: pandora.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: core
+    - host: api.pandora.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: cortex
+  tls:
+    - secretName: pandora-tls
+      hosts:
+        - pandora.local
+        - api.pandora.local

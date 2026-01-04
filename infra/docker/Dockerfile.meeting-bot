@@ -1,0 +1,60 @@
+# Use Node 20 Slim (Debian Bookworm) - Multi-arch support (ARM64/AMD64)
+FROM node:20-slim
+
+# Install system dependencies for Puppeteer
+RUN apt-get update && apt-get install -y \
+    chromium \
+    fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-freefont-ttf \
+    libxss1 \
+    xvfb \
+    dumb-init \
+    dbus \
+    dbus-x11 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Setup DBus
+RUN mkdir -p /var/run/dbus
+
+# Switch to non-root user? App usually runs as root in container or pptruser.
+# For simplicity with docker volumes and permissions, we stick to default or create one.
+# But puppeteer recommends non-root.
+# Let's create pptruser
+RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
+    && mkdir -p /home/pptruser/Downloads \
+    && chown -R pptruser:pptruser /home/pptruser
+
+WORKDIR /usr/src/app
+
+# Copy package files
+COPY package*.json ./
+
+# Env vars for Puppeteer
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    DBUS_SESSION_BUS_ADDRESS=autolaunch:
+
+# Install dependencies
+RUN npm install
+
+# Copy source
+COPY . .
+
+# Create entrypoint script
+RUN echo '#!/bin/bash' > /usr/local/bin/entrypoint.sh \
+    && echo 'set -e' >> /usr/local/bin/entrypoint.sh \
+    && echo 'rm -f /var/run/dbus/pid' >> /usr/local/bin/entrypoint.sh \
+    && echo 'if [ ! -e /var/run/dbus/system_bus_socket ]; then dbus-daemon --system --fork; fi' >> /usr/local/bin/entrypoint.sh \
+    && echo 'echo "[Entrypoint] Starting Meeting Bot..."' >> /usr/local/bin/entrypoint.sh \
+    && echo 'exec "$@"' >> /usr/local/bin/entrypoint.sh \
+    && chmod +x /usr/local/bin/entrypoint.sh
+
+# Fix permissions
+RUN chown -R pptruser:pptruser /usr/src/app
+
+# Run as root (required for dbus system, creates security trade-off but necessary for now)
+USER root
+
+EXPOSE 3002
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["npm", "start"]

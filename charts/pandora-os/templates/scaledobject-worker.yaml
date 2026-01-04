@@ -1,0 +1,21 @@
+{{- if .Values.keda.enabled -}}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "pandora-os.fullname" . }}-worker-scaler
+  labels:
+    {{- include "pandora-os.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "pandora-os.fullname" . }}-worker
+  pollingInterval: {{ .Values.worker.autoscaling.pollingInterval }}
+  cooldownPeriod: {{ .Values.worker.autoscaling.cooldownPeriod }}
+  minReplicaCount: {{ .Values.worker.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.worker.autoscaling.maxReplicas }}
+  triggers:
+    - type: redis
+      metadata:
+        address: {{ include "pandora-os.fullname" . }}-redis:6379
+        listName: "celery" # Default celery list key
+        listLength: "{{ .Values.worker.autoscaling.triggers.listLength }}"
+{{- end }}

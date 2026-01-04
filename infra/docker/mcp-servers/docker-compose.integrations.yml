@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  mcp-git:
+    image: mcp-bridge:latest
+    build:
+      context: ../../mcp-bridge
+      dockerfile: Dockerfile
+    environment:
+      - MCP_COMMAND=uvx
+      - MCP_ARGS=mcp-server-git
+    ports:
+      - "8081:8080"
+    networks:
+      - pandora-network
+
+  mcp-search:
+    image: mcp-bridge:latest
+    build:
+      context: ../../mcp-bridge
+      dockerfile: Dockerfile
+    environment:
+      - MCP_COMMAND=uvx
+      - MCP_ARGS=mcp-server-brave-search
+      - BRAVE_API_KEY=${BRAVE_API_KEY}
+    ports:
+      - "8082:8080"
+    networks:
+      - pandora-network
+
+  mcp-filesystem:
+    image: mcp-bridge:latest
+    build:
+      context: ../../mcp-bridge
+      dockerfile: Dockerfile
+    environment:
+      - MCP_COMMAND=uvx
+      - MCP_ARGS=mcp-server-filesystem /data
+    volumes:
+      - ./data:/data
+    ports:
+      - "8083:8080"
+    networks:
+      - pandora-network
+
+networks:
+  pandora-network:
+    external: true
+    name: pandora_network

@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audio-worker
+  labels:
+    app: pandoralm
+    component: audio-worker
+spec:
+  replicas: 0 # Scaled by KEDA
+  selector:
+    matchLabels:
+      app: pandoralm
+      component: audio-worker
+  template:
+    metadata:
+      labels:
+        app: pandoralm
+        component: audio-worker
+    spec:
+      containers:
+        - name: audio-worker
+          image: pandoralm/audio-worker:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: REDIS_URL
+              value: "redis://pandora-redis:6379"
+            - name: S3_ENDPOINT
+              value: "http://pandora-minio:9000"
+          resources:
+             limits:
+               nvidia.com/gpu: 1

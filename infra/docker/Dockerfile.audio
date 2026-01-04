@@ -1,0 +1,48 @@
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-dev \
+    ffmpeg \
+    git \
+    build-essential \
+    cmake \
+    libsndfile1 \
+    libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip to ensure wheel support
+RUN pip3 install --no-cache-dir --upgrade pip
+
+# Install Python dependencies
+# pinning versions for stability
+RUN pip3 install --no-cache-dir \
+    "numpy<2.0" \
+    faster-whisper==0.10.0 \
+    pyannote.audio==3.1.1 \
+    torch==2.0.1 \
+    torchaudio==2.0.2 \
+    boto3==1.34.0 \
+    redis==5.0.1 \
+    celery==5.3.6 \
+    pydantic==2.5.3 \
+    pydantic-settings==2.1.0 \
+    sqlalchemy==2.0.25 \
+    asyncpg==0.29.0 \
+    httpx==0.27.0 \
+    python-jose==3.3.0 \
+    cryptography==42.0.5 \
+    fastapi==0.109.0 \
+    python-multipart==0.0.9
+
+# Copy application code
+COPY cortex /app/cortex
+
+# Set Python path
+ENV PYTHONPATH=/app
+
+CMD ["celery", "-A", "cortex.workers.audio_gpu", "worker", "--loglevel=info", "--concurrency=1"]

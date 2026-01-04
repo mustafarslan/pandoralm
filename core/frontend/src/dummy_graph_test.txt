@@ -1,0 +1,6 @@
+
+PandoraLM is a knowledge operating system designed by standardizing vector and graph operations.
+It uses Neo4j for graph storage and LanceDB for vector storage.
+Mustafa Arslan is the lead architect.
+Google Deepmind provides the agentic intelligence.
+The system runs on Docker and Kubernetes.

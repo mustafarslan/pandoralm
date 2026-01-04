@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pandora-os.fullname" . }}-dashboard
+  labels:
+    {{- include "pandora-os.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  pandora-overview.json: |-
+    {
+      "title": "PandoraLM Overview",
+      "timezone": "browser",
+      "panels": [
+        {
+          "title": "RAG Latency (P95)",
+          "type": "graph",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{job=\"pandora-cortex\"}[5m])) by (le))"
+            }
+          ],
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+        },
+        {
+          "title": "Celery Queue Depth",
+          "type": "gauge",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "keda_scaler_metrics_value{scaler=\"pandora-worker-scaler\"}"
+            }
+          ],
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+        }
+      ]
+    }
+  cognitive-core.json: |-
+    {{ .Files.Get "dashboards/cognitive-core.json" | nindent 4 }}
+

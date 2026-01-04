@@ -15,4 +15,7 @@
 **/tmp/**
 **/.log
 !docker/.env.example
+!infra/docker/.env.example
 !frontend/.env.production
+!core/frontend/.env.production
+!core/frontend/dist

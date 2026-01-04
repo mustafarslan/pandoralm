@@ -1,0 +1,58 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: celery-fast-scaler
+  namespace: pandoralm
+  labels:
+    deploymentName: celery-fast
+spec:
+  scaleTargetRef:
+    name: celery-fast
+  minReplicaCount: 1     # Always keep one warm for instant response
+  maxReplicaCount: 10    # Burst capacity for high concurrency
+  pollingInterval: 15    # Check queue every 15s
+  cooldownPeriod: 300    # Wait 5m before scaling down
+  triggers:
+    - type: redis
+      metadata:
+        addressFromEnv: REDIS_URL # Referenced from deployment env
+        listName: fast_lane
+        listLength: "5"         # Scale up if >5 items pending
+      authenticationRef:
+        name: keda-redis-auth
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: celery-embedding-scaler
+  namespace: pandoralm
+  labels:
+    deploymentName: celery-embedding
+spec:
+  scaleTargetRef:
+    name: celery-embedding
+  minReplicaCount: 0     # Scale to zero to save GPU/CPU costs when idle
+  maxReplicaCount: 20    # High throughput for massive ingestion
+  pollingInterval: 30
+  cooldownPeriod: 600    # Keep GPU warm for 10m
+  triggers:
+    - type: redis
+      metadata:
+        addressFromEnv: REDIS_URL
+        listName: embedding
+        listLength: "10"        # Scale per 10 pending documents
+      authenticationRef:
+        name: keda-redis-auth
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-redis-auth
+  namespace: pandoralm
+spec:
+  secretTargetRef:
+    - parameter: password
+      name: pandora-secrets
+      key: REDIS_PASSWORD

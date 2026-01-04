@@ -1,12 +1,24 @@
-v-env
-.env
-!.env.example
 
+# Valid/Production patterns
 node_modules
 __pycache__
+.venv
 v-env
 .DS_Store
 aws_cf_deploy_anything_llm.json
 yarn.lock
-*.bak
 .idea
+*.bak
+
+# Temporary/Debug patterns
+*_logs.txt
+*_dump.txt
+*.html
+debug_*.py
+core_logs.txt
+cortex_logs.txt
+
+# Agent Artifacts
+.agent/
+.agent
+

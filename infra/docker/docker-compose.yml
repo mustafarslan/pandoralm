@@ -1,0 +1,325 @@
+name: pandoralm
+
+networks:
+  pandora-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  redis_data:
+  lancedb_data:
+  keycloak_data:
+  pandora-shared-storage:
+  pandora-shared-hotdir:
+
+
+services:
+  # ============================================
+  # Pandora Core (Node.js - API Gateway & UI)
+  # ============================================
+  pandora-core:
+    container_name: pandora-core
+    build:
+      context: ../../
+      dockerfile: ./infra/docker/Dockerfile.core
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - STORAGE_DIR=/app/server/storage
+      - DATABASE_URL=postgresql://pandora:pandora@postgres:5432/pandora
+      - CORTEX_API_URL=http://pandora-cortex:8000
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=pandora
+      - OLLAMA_BASE_PATH=http://host.docker.internal:11434
+      - JWT_SECRET=pandora_jwt_secret_12345
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pandora-cortex:
+        condition: service_started
+      keycloak:
+        condition: service_started
+    volumes:
+      - ../../core/server/storage:/app/server/storage
+      - lancedb_data:/app/server/storage/lancedb
+      - ../../core/server/endpoints/api/ops:/app/server/endpoints/api/ops
+      - ../../core/collector/hotdir:/app/collector/hotdir
+      - ../../core/frontend/dist:/app/server/public
+      - pandora-shared-storage:/app/shared/storage
+      - pandora-shared-hotdir:/app/shared/hotdir
+    networks:
+      - pandora-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ============================================
+  # Pandora Cortex (Python FastAPI - Compute Engine)
+  # ============================================
+  pandora-cortex:
+    container_name: pandora-cortex
+    build:
+      context: ../../cortex
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=true
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=pandora123
+      - LANCEDB_PATH=/app/storage/lancedb
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - DATABASE_URL=postgresql://pandora:pandora@postgres:5432/pandora
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=pandora
+      - KEYCLOAK_CLIENT_ID=pandora-cortex
+      # Tiered Inference Configuration (Router = fast 1B model, Solver = heavy reasoning)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_ROUTER_MODEL=${LLM_ROUTER_MODEL:-gemma3:1b}
+      - LLM_SOLVER_MODEL=${LLM_SOLVER_MODEL:-deepseek-r1:8b}
+      - LLM_ROUTER_API_BASE=${LLM_ROUTER_API_BASE:-http://host.docker.internal:11434}
+      - LLM_SOLVER_API_BASE=${LLM_SOLVER_API_BASE:-http://host.docker.internal:11434}
+      # Legacy settings for backward compatibility
+      - ROUTER_LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - ROUTER_LLM_MODEL=${LLM_ROUTER_MODEL:-gemma3:1b}
+      - OLLAMA_BASE_URL=${LLM_ROUTER_API_BASE:-http://host.docker.internal:11434}
+      - DEFAULT_EMBEDDING_MODEL=all-MiniLM-L6-v2
+      - EMBEDDING_PROVIDER=sentence-transformers
+      # E2E Testing: Skip auth for ops endpoints (set to false in production)
+      - DEV_MODE_SKIP_AUTH=true
+      - GIT_PYTHON_GIT_EXECUTABLE=/usr/bin/git
+      - OTEL_TRACES_EXPORTER=none
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    volumes:
+      - ../../cortex:/app
+      - lancedb_data:/app/storage/lancedb
+      - pandora-shared-storage:/app/storage
+      - pandora-shared-hotdir:/app/hotdir
+    networks:
+      - pandora-network
+
+  # ============================================
+  # Celery Worker - Fast Lane (Vectorization)
+  # High concurrency, seconds-scale tasks
+  # ============================================
+  celery-fast:
+    container_name: pandora-celery-fast
+    build:
+      context: ../../cortex
+      dockerfile: Dockerfile
+    command: celery -A app.workers.celery_app worker --loglevel=info -Q fast_lane,indexing -c 4
+    healthcheck:
+      test: [ "CMD-SHELL", "celery -A app.workers.celery_app inspect ping || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=pandora123
+      - LANCEDB_PATH=/app/storage/lancedb
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - DATABASE_URL=postgresql://pandora:pandora@postgres:5432/pandora
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - DEFAULT_EMBEDDING_MODEL=all-MiniLM-L6-v2
+      - EMBEDDING_PROVIDER=sentence-transformers
+      - GIT_PYTHON_REFRESH=quiet
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    volumes:
+      - ../../cortex:/app
+      - lancedb_data:/app/storage/lancedb
+      - pandora-shared-storage:/app/storage
+      - pandora-shared-hotdir:/app/hotdir
+    networks:
+      - pandora-network
+
+  # ============================================
+  # Celery Worker - Heavy Lifting (GraphRAG)
+  # Low concurrency, minutes/hours-scale tasks
+  # ============================================
+  celery-heavy:
+    container_name: pandora-celery-heavy
+    build:
+      context: ../../cortex
+      dockerfile: ../infra/docker/Dockerfile.worker
+    command: celery -A app.workers.celery_app worker --loglevel=info -Q heavy_lifting,research -c 1
+    healthcheck:
+      test: [ "CMD-SHELL", "celery -A app.workers.celery_app inspect ping || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=pandora123
+      - LANCEDB_PATH=/app/storage/lancedb
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - DATABASE_URL=postgresql://pandora:pandora@postgres:5432/pandora
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_SOLVER_MODEL=${LLM_SOLVER_MODEL:-deepseek-r1:8b}
+      - LLM_SOLVER_API_BASE=${LLM_SOLVER_API_BASE:-http://host.docker.internal:11434}
+      - DEFAULT_EMBEDDING_MODEL=all-MiniLM-L6-v2
+      - EMBEDDING_PROVIDER=sentence-transformers
+      - GIT_PYTHON_REFRESH=quiet
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    volumes:
+      - ../../cortex:/app
+      - lancedb_data:/app/storage/lancedb
+      - pandora-shared-storage:/app/storage
+      - pandora-shared-hotdir:/app/hotdir
+    networks:
+      - pandora-network
+
+  # ============================================
+  # Meeting Intelligence Bot (Node.js/Puppeteer)
+  # Captures meeting audio/video streams
+  # ============================================
+  meeting-bot:
+    container_name: pandora-meeting-bot
+    build:
+      context: ../../services/meeting-bot
+      dockerfile: ../../infra/docker/Dockerfile.meeting-bot
+    environment:
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-pandora}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-pandora123}
+      - REDIS_URL=redis://redis:6379/0
+      - CORTEX_API_URL=http://pandora-cortex:8000
+    ports:
+      - "3003:3002"
+    volumes:
+      - /dev/shm:/dev/shm # Critical for Puppeteer shared memory
+    depends_on:
+      redis:
+        condition: service_healthy
+      pandora-cortex:
+        condition: service_started
+    networks:
+      - pandora-network
+
+  # ============================================
+  # PostgreSQL (Application State)
+  # ============================================
+  postgres:
+    container_name: pandora-postgres
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=pandora
+      - POSTGRES_PASSWORD=pandora
+      - POSTGRES_DB=pandora
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U pandora" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pandora-network
+
+  # ============================================
+  # Redis (Celery Broker & Cache)
+  # ============================================
+  redis:
+    container_name: pandora-redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pandora-network
+
+  # ============================================
+  # Neo4j (Graph Database)
+  # ============================================
+  neo4j:
+    container_name: pandora-neo4j
+    image: neo4j:5.16-community
+    environment:
+      - NEO4J_AUTH=neo4j/pandora123
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_server_memory_heap_initial__size=512m
+      - NEO4J_server_memory_heap_max__size=1G
+    ports:
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - pandora-network
+
+  # ============================================
+  # Keycloak (Identity Provider - Quarkus)
+  # ============================================
+  keycloak:
+    container_name: pandora-keycloak
+    image: quay.io/keycloak/keycloak:24.0
+    command: start-dev --import-realm
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/pandora
+      - KC_DB_USERNAME=pandora
+      - KC_DB_PASSWORD=pandora
+      - KC_HEALTH_ENABLED=true
+      - KC_HOSTNAME_STRICT=false
+      - KC_HOSTNAME_STRICT_HTTPS=false
+      - KC_HTTP_ENABLED=true
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pandora-network

@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pandora-meeting-bot
+  labels:
+    app: pandora-meeting-bot
+    component: ingestion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pandora-meeting-bot
+  template:
+    metadata:
+      labels:
+        app: pandora-meeting-bot
+    spec:
+      tolerations:
+        - key: "workload"
+          value: "ingestion"
+          effect: "NoSchedule"
+      containers:
+        - name: meeting-bot
+          image: pandora-meeting-bot:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              memory: "2Gi"
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+          env:
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: pandora-config
+                  key: minio-endpoint
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pandora-secrets
+                  key: minio-access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pandora-secrets
+                  key: minio-secret-key
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pandora-secrets
+                  key: redis-url
+          volumeMounts:
+            # CRITICAL: Mount shared memory to prevent browser crashes
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "512Mi"

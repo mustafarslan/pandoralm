@@ -1,0 +1,27 @@
+PandoraLM Engineering Policy
+Effective Date: 2025-01-01
+
+1. Remote Work Policy
+All engineers are allowed to work remotely 100% of the time. However, core hours are 10 AM to 2 PM EST ensuring overlap for team syncs.
+Engineers must reside within the country of employment unless granted a "Digital Nomad" exception which serves for up to 90 days per year.
+
+2. Code Review Standards
+Every pull request (PR) must have at least two approvals.
+PRs should not exceed 400 lines of code to ensure review quality.
+Unit tests are mandatory for all backend logic. Coverage must remain above 85%.
+
+3. Incident Response
+For P0 incidents (System Down), the on-call engineer must acknowledge within 15 minutes.
+For P1 incidents (Feature Broken), verification must occur within 1 hour.
+A post-mortem (RCA) is required for all P0 duplicates within 48 hours of resolution.
+
+4. Hybrid RAG Architecture
+PandoraLM uses a Hybrid RAG approach combining Vector Search (System 1) and GraphRAG (System 2).
+Vector Search handles factual queries with low latency (<200ms).
+GraphRAG handles thematic queries requiring cross-document reasoning, with eventual consistency.
+The Cognitive Router classifies queries into Factual, Thematic, or Research intents.
+
+5. Security
+All API keys must be rotated every 90 days.
+Production database access is restricted to the Platform Engineering team.
+MFA is required for all internal systems.

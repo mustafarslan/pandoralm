@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Graph Triad: Asymmetric triangular formation -->
+  <!-- Fibonacci Scaling: 1x (r=30), 1.618x (r=48.5), 2.618x (r=78.5) -->
+  
+  <!-- Connections (Edges) - drawn first so nodes overlay -->
+  <line x1="120" y1="380" x2="256" y2="100" stroke="#CFCFCF" stroke-width="1" />
+  <line x1="256" y1="100" x2="400" y2="340" stroke="#CFCFCF" stroke-width="1" />
+  <line x1="400" y1="340" x2="120" y2="380" stroke="#CFCFCF" stroke-width="1" />
+  
+  <!-- Node A (Small) - Bottom Left -->
+  <circle cx="120" cy="380" r="30" fill="#7D7D7D" />
+  
+  <!-- Node B (Medium) - Top Center -->
+  <circle cx="256" cy="100" r="48" fill="#545454" />
+  
+  <!-- Node C (Large) - Bottom Right -->
+  <circle cx="400" cy="340" r="78" fill="#252525" />
+</svg>

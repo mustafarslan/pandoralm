@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <!-- Background for dark theme -->
+  <rect width="400" height="100" fill="transparent"/>
+  <!-- Icon: Neural network box -->
+  <rect x="10" y="15" width="70" height="70" rx="12" fill="url(#grad)" opacity="0.15"/>
+  <circle cx="32" cy="38" r="8" fill="url(#grad)"/>
+  <circle cx="58" cy="38" r="8" fill="url(#grad)"/>
+  <circle cx="45" cy="62" r="8" fill="url(#grad)"/>
+  <line x1="32" y1="38" x2="58" y2="38" stroke="url(#grad)" stroke-width="3"/>
+  <line x1="32" y1="38" x2="45" y2="62" stroke="url(#grad)" stroke-width="3"/>
+  <line x1="58" y1="38" x2="45" y2="62" stroke="url(#grad)" stroke-width="3"/>
+  <!-- Text with gradient -->
+  <text x="95" y="62" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="42" font-weight="600" fill="url(#grad)">PandoraLM</text>
+</svg>

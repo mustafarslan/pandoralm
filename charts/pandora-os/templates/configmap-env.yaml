@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pandora-os.fullname" . }}-config
+  labels:
+    {{- include "pandora-os.labels" . | nindent 4 }}
+data:
+  # Global Settings
+  DOMAIN: {{ .Values.global.domain | quote }}
+  ENVIRONMENT: {{ .Values.global.env | quote }}
+  
+  # Cortex Settings
+  HOST: "0.0.0.0"
+  PORT: "8000"
+  
+  # Data Layer Connection Strings (Internal DNS)
+  # Postgres
+  POSTGRES_HOST: {{ include "pandora-os.fullname" . }}-postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "pandora"
+  
+  # Neo4j
+  NEO4J_URI: "bolt://{{ include "pandora-os.fullname" . }}-neo4j:7687"
+  NEO4J_USER: "neo4j"
+  
+  # Redis
+  REDIS_URL: "redis://{{ include "pandora-os.fullname" . }}-redis:6379/0"
+  CELERY_BROKER_URL: "redis://{{ include "pandora-os.fullname" . }}-redis:6379/0"
+  CELERY_RESULT_BACKEND: "redis://{{ include "pandora-os.fullname" . }}-redis:6379/1"
+  
+  # MinIO / LanceDB
+  LANCEDB_URI: {{ .Values.cortex.env.LANCEDB_URI | quote }}
+  AWS_ENDPOINT_URL: {{ .Values.cortex.env.AWS_ENDPOINT_URL | quote }}
+  
+  # LLM Settings
+  LLM_PROVIDER: {{ .Values.cortex.env.LLM_PROVIDER | quote }}
+  LLM_ROUTER_MODEL: {{ .Values.cortex.env.LLM_ROUTER_MODEL | quote }}
+  LLM_SOLVER_MODEL: {{ .Values.cortex.env.LLM_SOLVER_MODEL | quote }}
+  
+  # Core Settings
+  CORTEX_API_URL: "http://{{ include "pandora-os.fullname" . }}-cortex:8000"

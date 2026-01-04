@@ -1,0 +1,50 @@
+CORPORATE POLICY DOCUMENT
+=========================
+Version 3.2 | Effective Date: January 2024
+
+SECTION A: Data Retention Policy
+--------------------------------
+All customer data must be retained for a minimum of 7 years in accordance with 
+federal regulations. Data should be stored in encrypted format and access 
+logs must be maintained for audit purposes.
+
+Subsection A.1: Deletion Protocols
+Upon receiving a valid deletion request, data must be purged within 30 business 
+days. However, backup archives may retain data for up to 90 days for disaster 
+recovery purposes.
+
+Subsection A.2: Cross-Border Data Transfer
+Customer data may NOT be transferred outside the primary jurisdiction without 
+explicit written consent and appropriate data protection agreements in place.
+
+SECTION B: Employee Access Rights
+---------------------------------
+Employees shall have access only to data necessary for their job functions. 
+All access must be logged and reviewed quarterly.
+
+Subsection B.1: Third-Party Access
+Third-party contractors may be granted temporary access for specific projects 
+ONLY after signing an NDA and completing security training. Access duration 
+shall not exceed 6 months without renewal.
+
+Subsection B.2: Data Portability
+Employees may request copies of their personal employment data. Such requests 
+must be fulfilled within 30 days.
+
+CONFLICT ANALYSIS (Internal Note):
+---------------------------------
+There exists a potential conflict between Section A and Section B regarding 
+data deletion timelines. Section A requires 30-day deletion while Section B 
+implies indefinite retention for audit purposes. This conflict should be 
+addressed in the next policy revision.
+
+Additionally, Section A.2 restricts cross-border transfer while certain 
+third-party contractors (per B.1) may operate from international locations,
+creating operational challenges for global projects.
+
+APPENDIX: Regulatory References
+-------------------------------
+- GDPR Article 17 (Right to Erasure)
+- CCPA Section 1798.105
+- SOC 2 Type II Requirements
+- Internal Audit Standard IS-2024-001

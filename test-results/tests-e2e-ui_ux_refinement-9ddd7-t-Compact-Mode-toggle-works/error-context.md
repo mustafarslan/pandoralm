@@ -1,0 +1,61 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - link "PandoraLM" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img "PandoraLM" [ref=e8]
+        - button "Collapse sidebar" [ref=e9] [cursor=pointer]:
+          - img [ref=e10]
+      - generic [ref=e12]:
+        - button "Context" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+          - generic [ref=e18]: Context
+        - button "Library" [ref=e19] [cursor=pointer]:
+          - img [ref=e20]
+          - generic [ref=e22]: Library
+        - button "Engine Room" [ref=e23] [cursor=pointer]:
+          - img [ref=e24]
+          - generic [ref=e27]: Engine Room
+      - generic [ref=e29]:
+        - paragraph [ref=e30]: Active Context
+        - button "R System SYSTEM" [disabled] [ref=e31]:
+          - generic [ref=e32]: R
+          - generic [ref=e33]:
+            - paragraph [ref=e34]: System
+            - paragraph [ref=e35]: SYSTEM
+        - button "R Organization ORG" [ref=e37] [cursor=pointer]:
+          - generic [ref=e38]: R
+          - generic [ref=e39]:
+            - paragraph [ref=e40]: Organization
+            - paragraph [ref=e41]: ORG
+        - button "W Engineering TEAM" [ref=e43] [cursor=pointer]:
+          - generic [ref=e44]: W
+          - generic [ref=e45]:
+            - paragraph [ref=e46]: Engineering
+            - paragraph [ref=e47]: TEAM
+        - button "A Private USER" [ref=e48] [cursor=pointer]:
+          - generic [ref=e49]: A
+          - generic [ref=e50]:
+            - paragraph [ref=e51]: Private
+            - paragraph [ref=e52]: USER
+      - generic [ref=e56]: System Online
+    - generic [ref=e59]:
+      - button "ad" [ref=e61] [cursor=pointer]
+      - generic [ref=e63]:
+        - generic [ref=e65]: ‌
+        - generic [ref=e67]: ‌
+        - generic [ref=e69]: ‌
+        - generic [ref=e71]: ‌
+        - generic [ref=e73]: ‌
+  - generic [ref=e75]:
+    - generic [ref=e77]:
+      - img [ref=e78]
+      - heading "Workspace not found" [level=3] [ref=e80]
+    - paragraph [ref=e82]: The workspace you're looking for is not available. It may have been deleted or you may not have access to it.
+    - link "Return to homepage" [ref=e84] [cursor=pointer]:
+      - /url: /
+```

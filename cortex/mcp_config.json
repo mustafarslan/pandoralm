@@ -1,0 +1,30 @@
+{
+    "tools": {
+        "filesystem": {
+            "url": "http://mcp-fs.pandora-agents.svc.cluster.local:8080/sse",
+            "description": "Local filesystem access"
+        },
+        "web_search": {
+            "url": "http://mcp-search.pandora-agents.svc.cluster.local:8080/sse",
+            "description": "Brave Search / Google Search"
+        },
+        "git": {
+            "url": "http://mcp-git.pandora-agents.svc.cluster.local:8080/sse",
+            "description": "Git repository operations"
+        }
+    },
+    "personas": {
+        "researcher": {
+            "tools": [
+                "web_search",
+                "filesystem"
+            ]
+        },
+        "coder": {
+            "tools": [
+                "git_*",
+                "filesystem"
+            ]
+        }
+    }
+}

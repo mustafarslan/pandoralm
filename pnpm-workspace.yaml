@@ -1,0 +1,5 @@
+packages:
+  - "core/server"
+  - "core/frontend"
+  - "core/collector"
+  - "packages/*"

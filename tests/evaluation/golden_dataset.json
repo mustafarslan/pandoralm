@@ -1,0 +1,60 @@
+[
+    {
+        "id": "golden-1",
+        "question": "What is a Knowledge Layer in PandoraLM?",
+        "expected_answer": "A Knowledge Layer is a partitioned namespace for documents that enforces access control. Each layer has its own vector store partition and can be of type SYSTEM, ORGANIZATION, TEAM, or USER.",
+        "expected_context": [
+            "Knowledge Layers provide data isolation",
+            "ReBAC",
+            "layer_id"
+        ],
+        "category": "factual"
+    },
+    {
+        "id": "golden-2",
+        "question": "How does the Cognitive Router decide which retrieval mode to use?",
+        "expected_answer": "The Cognitive Router uses a lightweight LLM model to classify user queries into FACTUAL, THEMATIC, or RESEARCH intents. FACTUAL queries use Vector Search (System 1), THEMATIC queries use GraphRAG Global Search (System 2), and RESEARCH queries trigger the Deep Research Agent.",
+        "expected_context": [
+            "Tiered Inference",
+            "gemma3:1b",
+            "System 1",
+            "System 2"
+        ],
+        "category": "thematic"
+    },
+    {
+        "id": "golden-3",
+        "question": "What is the difference between celery-fast and celery-heavy workers?",
+        "expected_answer": "celery-fast handles high-concurrency, seconds-scale tasks like vectorization. celery-heavy handles low-concurrency, minutes/hours-scale tasks like GraphRAG indexing and deep research.",
+        "expected_context": [
+            "fast_lane",
+            "heavy_lifting",
+            "background workers"
+        ],
+        "category": "factual"
+    },
+    {
+        "id": "golden-4",
+        "question": "How does PandoraLM ensure data security for multi-tenant environments?",
+        "expected_answer": "PandoraLM uses Relationship-Based Access Control (ReBAC) with Knowledge Layers. All vectors and graph nodes are stamped with layer_id metadata. Query-time filtering enforces that users only see data from layers they have permission to access.",
+        "expected_context": [
+            "layer_id",
+            "ReBAC",
+            "LayerPermission",
+            "prefilter"
+        ],
+        "category": "thematic"
+    },
+    {
+        "id": "golden-5",
+        "question": "What is the purpose of the MCP Bridge container?",
+        "expected_answer": "The MCP Bridge container converts standard stdio-based MCP servers into networked SSE servers, allowing them to be deployed as independent Kubernetes microservices that the Cortex orchestrator can communicate with over HTTP.",
+        "expected_context": [
+            "MCP",
+            "SSE",
+            "Model Context Protocol",
+            "mcp-bridge"
+        ],
+        "category": "factual"
+    }
+]

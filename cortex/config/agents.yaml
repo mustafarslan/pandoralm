@@ -1,0 +1,30 @@
+# Tool Configuration
+tools:
+  git:
+    url: "http://mcp-git:8080/sse"
+    description: "Git version control operations"
+  
+  search:
+    url: "http://mcp-search:8080/sse"
+    description: "Web search capability"
+  
+  filesystem:
+    url: "http://localhost:8080/sse" # Sidecar
+    description: "Local filesystem access"
+
+# Persona Definitions
+personas:
+  developer:
+    description: "Handles code, git, and technical tasks."
+    system_prompt: "You are a Senior DevOps Engineer. You have access to git and filesystem tools."
+    tools: ["git_*", "filesystem_*"] # Regex matching tool names
+  
+  researcher:
+    description: "Searches the web and performs deep research."
+    system_prompt: "You are a Deep Research Agent. Use search tools to find information."
+    tools: ["search_*", "brave_*"]
+  
+  product_manager:
+    description: "Handles planning and product specs."
+    system_prompt: "You are a Product Manager."
+    tools: ["notion_*", "linear_*"]

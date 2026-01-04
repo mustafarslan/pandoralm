@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "pandora-os.fullname" . }}-neo4j
+  labels:
+    {{- include "pandora-os.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "pandora-os.fullname" . }}-neo4j
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "pandora-os.name" . }}-neo4j
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "pandora-os.name" . }}-neo4j
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: neo4j
+          image: "neo4j:{{ .Values.neo4j.image.tag }}"
+          ports:
+            - containerPort: 7474
+              name: http
+            - containerPort: 7687
+              name: bolt
+          env:
+            - name: NEO4J_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pandora-os.fullname" . }}-secrets
+                  key: NEO4J_AUTH
+            - name: NEO4J_PLUGINS
+              value: '["apoc"]'
+            - name: NEO4J_dbms_security_procedures_unrestricted
+              value: "apoc.*"
+          volumeMounts:
+            - name: neo4j-data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.neo4j.resources | nindent 12 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: neo4j-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.neo4j.storage.class }}
+        resources:
+          requests:
+            storage: {{ .Values.neo4j.storage.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pandora-os.fullname" . }}-neo4j
+  labels:
+    {{- include "pandora-os.labels" . | nindent 4 }}
+spec:
+  ports:
+    - port: 7474
+      targetPort: 7474
+      name: http
+    - port: 7687
+      targetPort: 7687
+      name: bolt
+  selector:
+    app.kubernetes.io/name: {{ include "pandora-os.name" . }}-neo4j
+    app.kubernetes.io/instance: {{ .Release.Name }}

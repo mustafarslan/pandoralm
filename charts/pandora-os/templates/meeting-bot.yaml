@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meeting-bot
+  labels:
+    app: pandoralm
+    component: meeting-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pandoralm
+      component: meeting-bot
+  template:
+    metadata:
+      labels:
+        app: pandoralm
+        component: meeting-bot
+    spec:
+      containers:
+        - name: meeting-bot
+          image: pandoralm/meeting-bot:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3002
+              name: http
+          env:
+            - name: PORT
+              value: "3002"
+            - name: REDIS_URL
+              value: "redis://pandora-redis:6379"
+            - name: S3_ENDPOINT
+              value: "http://pandora-minio:9000"
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1000m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory

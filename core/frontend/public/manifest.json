@@ -1,0 +1,14 @@
+{
+  "name": "PandoraLM",
+  "short_name": "PandoraLM",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
