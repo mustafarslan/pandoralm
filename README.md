@@ -1,10 +1,14 @@
-<p align="center">
-  <img src="./core/frontend/public/brand/logo-symbol.svg" alt="PandoraLM Symbol" width="80">
-</p>
-
-<p align="center">
-  <img src="./core/frontend/public/brand/logo-wordmark.svg" alt="PandoraLM" width="280">
-</p>
+<div style="text-align: center; padding-left: 20%;">
+  <table width="100%">
+    <tr>
+      <td align="center" bgcolor="white" style="padding: 30px;">
+        <img  src="./core/frontend/public/brand/logo-symbol.svg" alt="PandoraLM Symbol" width="20%">
+        <br>
+        <img style="text-align: center; padding-left: 15%;" src="./core/frontend/public/brand/logo-wordmark.svg" alt="PandoraLM" width="100%">
+      </td>
+    </tr>
+  </table>
+</div>
 
 <p align="center">
   <b>Enterprise-Grade Hybrid RAG Platform</b><br>
