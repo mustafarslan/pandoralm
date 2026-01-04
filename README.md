@@ -1,7 +1,7 @@
 <div style="text-align: center; padding-left: 20%;">
   <table width="100%">
     <tr>
-      <td align="center" bgcolor="white" style="padding: 30px;">
+      <td style="padding: 30px; background-color: white;">
         <img  src="./core/frontend/public/brand/logo-symbol.svg" alt="PandoraLM Symbol" width="20%">
         <br>
         <img style="text-align: center; padding-left: 15%;" src="./core/frontend/public/brand/logo-wordmark.svg" alt="PandoraLM" width="100%">
