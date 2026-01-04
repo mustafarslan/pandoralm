@@ -144,7 +144,7 @@ async function streamChatWithWorkspace(
         attachments,
       },
       threadId: thread?.id || null,
-      include: false,
+      include: true,  // Fixed: was false, causing chats to be hidden from history
       user,
     });
     return;

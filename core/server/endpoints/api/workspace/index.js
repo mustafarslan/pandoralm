@@ -429,18 +429,60 @@ function apiWorkspaceEndpoints(app) {
 
         const history = apiSessionId
           ? await WorkspaceChats.forWorkspaceByApiSessionId(
-              workspace.id,
-              apiSessionId,
-              validLimit,
-              { createdAt: validOrderBy }
-            )
+            workspace.id,
+            apiSessionId,
+            validLimit,
+            { createdAt: validOrderBy }
+          )
           : await WorkspaceChats.forWorkspace(workspace.id, validLimit, {
-              createdAt: validOrderBy,
-            });
+            createdAt: validOrderBy,
+          });
         response.status(200).json({ history: convertToChatHistory(history) });
       } catch (e) {
         console.error(e.message, e);
         response.sendStatus(500).end();
+      }
+    }
+  );
+
+  // POST: Save a new chat message pair
+  app.post(
+    "/v1/workspace/:slug/chats",
+    [validApiKey],
+    async (request, response) => {
+      /*
+      #swagger.tags = ['Workspaces']
+      #swagger.description = 'Save a new chat message to a workspace.'
+      */
+      try {
+        const { slug } = request.params;
+        const { prompt, response: aiResponse, threadId = null } = reqBody(request);
+
+        if (!prompt) {
+          return response.status(400).json({ error: "prompt is required" });
+        }
+
+        const workspace = await Workspace.get({ slug });
+        if (!workspace) {
+          return response.sendStatus(400).end();
+        }
+
+        const { chat, message } = await WorkspaceChats.new({
+          workspaceId: workspace.id,
+          prompt,
+          response: aiResponse || {},
+          threadId,
+          include: true,
+        });
+
+        if (!chat) {
+          return response.status(500).json({ error: message || "Failed to save chat" });
+        }
+
+        response.status(201).json({ success: true, chatId: chat.id });
+      } catch (e) {
+        console.error(e.message, e);
+        response.status(500).json({ error: e.message });
       }
     }
   );
