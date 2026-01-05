@@ -127,9 +127,9 @@ This helps users understand HOW you arrived at your answer.
 
 INSTRUCTIONS:
 1. First, analyze the context in <think> tags - identify key facts, connections, and relevance to the question.
-2. Answer the user's question based ONLY on the provided context.
+2. Answer the user's question primarily based on the provided context.
 3. When citing information, use the format [1], [2], etc. to reference specific sources.
-4. If the context doesn't contain relevant information, say "I don't have enough context to answer this."
+4. If the provided context is not relevant or sufficient, answer based on your general knowledge, but explicitly mention that the answer is not from the provided context sources.
 5. Be concise but comprehensive.
 6. Use markdown formatting for clarity (headers, bullet points, bold for key terms).
 
