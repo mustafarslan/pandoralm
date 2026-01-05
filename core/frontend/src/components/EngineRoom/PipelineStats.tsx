@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, ArrowRight, Database, Network, CheckCircle2, Loader2, GitBranch, XCircle, Info } from 'lucide-react';
+import { FileText, ArrowRight, Database, Network, CheckCircle2, Loader2, GitBranch, XCircle, Info, Play, Pause, Square, Trash2 } from 'lucide-react';
 import System from '@/models/system';
 import { HelpTooltip } from '@/components/HelpTooltip';
 
@@ -42,7 +42,7 @@ export const PipelineStats = () => {
                     filename,
                     progress: job.status === 'running' ? 50 : 0,
                     status: job.status === 'running' ? 'processing' : 'queued',
-                    layer: 'system' // Default as we can't easily parse layer from args yet
+                    layer: job.layer || job.workspace_id || 'system' // Use backend layer (workspace_id)
                 };
             });
             setTasks(mappedTasks);
@@ -127,7 +127,12 @@ export const PipelineStats = () => {
                             <th>Task ID</th>
                             <th>File</th>
                             <th>Layer</th>
-                            <th>Phase</th>
+                            <th>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-16 shrink-0"></div> {/* Spacer to match progress bar alignment */}
+                                    Phase
+                                </div>
+                            </th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -153,14 +158,14 @@ export const PipelineStats = () => {
                                     </span>
                                 </td>
                                 <td>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-16 h-1.5 bg-ink-panel rounded-full overflow-hidden">
+                                    <div className="flex items-center gap-2 min-w-[140px]">
+                                        <div className="w-16 h-1.5 bg-ink-panel rounded-full overflow-hidden shrink-0">
                                             <div
                                                 className={`h-full rounded-full ${task.stage === 'GRAPH_COMPLETE' ? 'bg-os-heavy' : 'bg-os-code'}`}
                                                 style={{ width: `${task.progress}%` }}
                                             />
                                         </div>
-                                        <span className="text-[10px] text-ink-muted font-bold uppercase">{task.stage.replace('_', ' ')}</span>
+                                        <span className="text-[10px] text-ink-muted font-bold uppercase whitespace-nowrap">{task.stage.replace('_', ' ')}</span>
                                     </div>
                                 </td>
                                 <td>
@@ -177,15 +182,47 @@ export const PipelineStats = () => {
                                     )}
                                 </td>
                                 <td>
-                                    {(task.status === 'processing' || task.status === 'queued') && (
+                                    <div className="flex items-center gap-1">
+                                        {/* Play (Resume) - Not yet supported by backend for granular tasks */}
+                                        <button
+                                            className="p-1 text-ink-muted hover:text-ink-primary transition-colors opacity-50 cursor-not-allowed"
+                                            title="Start/Resume (Not available for queued tasks)"
+                                            disabled
+                                        >
+                                            <Play size={14} />
+                                        </button>
+
+                                        {/* Pause - Not yet supported by backend for granular tasks */}
+                                        <button
+                                            className="p-1 text-ink-muted hover:text-ink-primary transition-colors opacity-50 cursor-not-allowed"
+                                            title="Pause (Not available)"
+                                            disabled
+                                        >
+                                            <Pause size={14} />
+                                        </button>
+
+                                        {/* Stop (Cancel) */}
                                         <button
                                             onClick={() => handleCancel(task.id)}
-                                            className="text-red-500 hover:text-red-700 transition-colors p-1"
-                                            title="Stop Job"
+                                            className={`p-1 transition-colors ${task.status === 'processing'
+                                                ? 'text-red-500 hover:text-red-700'
+                                                : 'text-ink-muted hover:text-red-500'
+                                                }`}
+                                            title="Stop Processing"
+                                            disabled={task.status !== 'processing' && task.status !== 'queued'}
                                         >
-                                            <XCircle size={14} />
+                                            <Square size={14} />
                                         </button>
-                                    )}
+
+                                        {/* Delete (Revoke/Remove) */}
+                                        <button
+                                            onClick={() => handleCancel(task.id)}
+                                            className="p-1 text-ink-muted hover:text-red-600 transition-colors"
+                                            title="Delete Task"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -197,3 +234,5 @@ export const PipelineStats = () => {
 };
 
 export default PipelineStats;
+
+// Trigger rebuild
