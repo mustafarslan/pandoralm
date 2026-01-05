@@ -2,8 +2,15 @@
 Workspace Management Endpoints
 """
 from typing import List, Optional
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from app.core.database import get_db
+from app.core.security import require_auth, UserContext
+from app.models.workspace import Workspace as WorkspaceModel
+from app.services.workspace_layer_service import WorkspaceLayerService
 
 router = APIRouter()
 
@@ -22,57 +29,77 @@ class Workspace(BaseModel):
     lastUpdatedAt: str
 
 @router.post("/new")
-async def create_workspace(request: CreateWorkspaceRequest):
+async def create_workspace(
+    request: CreateWorkspaceRequest, 
+    user: UserContext = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Create a new workspace.
-    For the Python backend, we store this in Postgres/Neo4j, 
-    but for now we mock the response to unblock onboarding.
+    Create a new workspace (Real DB Impl).
     """
     import datetime
     
     slug = request.name.lower().replace(" ", "-")
-    now = datetime.datetime.now().isoformat()
     
+    # Check if exists
+    stmt = select(WorkspaceModel).where(WorkspaceModel.slug == slug)
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
+    
+    if existing:
+        # Return existing to be idempotent/friendly
+        # Or should we Update?
+        ws = existing
+    else:
+        ws = WorkspaceModel(name=request.name, slug=slug)
+        db.add(ws)
+        await db.commit()
+        await db.refresh(ws)
+        
+        # Only init layers if new
+        try:
+            # We use singleton service, but we could pass db if we wanted transaction reuse?
+            # initialize_defaults creates its own session as implemented.
+            await WorkspaceLayerService.initialize_defaults(slug)
+        except Exception as e:
+            print(f"Layer Init Warning: {e}")
+
     return {
-        "workspace": {
-            "id": 1,
-            "name": request.name,
-            "slug": slug,
-            "vectorTag": slug,
-            "createdAt": now,
-            "lastUpdatedAt": now
-        },
+        "workspace": ws.to_dict(),
         "message": "Workspace created successfully."
     }
 
 @router.get("/")
-async def list_workspaces():
+async def list_workspaces(
+    user: UserContext = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
     """List available workspaces."""
+    stmt = select(WorkspaceModel)
+    result = await db.execute(stmt)
+    workspaces = result.scalars().all()
+    
     return {
-        "workspaces": [
-            {
-                "id": 1,
-                "name": "My First Workspace",
-                "slug": "my-first-workspace",
-                "vectorTag": "my-first-workspace",
-                "createdAt": "2024-01-01T00:00:00.000Z",
-                "lastUpdatedAt": "2024-01-01T00:00:00.000Z"
-            }
-        ]
+        "workspaces": [w.to_dict() for w in workspaces]
     }
 
 @router.get("/{slug}")
-async def get_workspace(slug: str):
+async def get_workspace(
+    slug: str, 
+    user: UserContext = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
     """Get a specific workspace by slug."""
+    stmt = select(WorkspaceModel).where(WorkspaceModel.slug == slug)
+    result = await db.execute(stmt)
+    ws = result.scalar_one_or_none()
+    
+    if not ws:
+        # Fallback to mock if not found? No, user forbid mocks.
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
     return {
-        "workspace": {
-            "id": 1,
-            "name": "My First Workspace",
-            "slug": slug,
-            "vectorTag": slug,
-            "createdAt": "2024-01-01T00:00:00.000Z",
-            "lastUpdatedAt": "2024-01-01T00:00:00.000Z"
-        }
+        "workspace": ws.to_dict()
     }
 
 @router.get("/{slug}/threads")

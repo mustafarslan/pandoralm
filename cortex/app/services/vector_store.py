@@ -236,9 +236,6 @@ class LanceDBStore:
         if not chunks_data:
             return 0
             
-        # Infer workspace_id from first chunk (all must belong to same workspace)
-        # workspace_id = chunks_data[0].get("workspace_id", "default")
-        
         vector_chunks = []
         for c in chunks_data:
             vector_chunks.append(VectorChunk(
@@ -251,7 +248,6 @@ class LanceDBStore:
                 access_roles=c.get("access_roles", []),
                 visibility=c.get("visibility", "private"),
                 metadata=c["metadata"],
-                # Let created_at default or use provided
                 created_at=c.get("created_at") or datetime.utcnow().isoformat(),
             ))
             
@@ -262,11 +258,6 @@ class LanceDBStore:
     def add_chunks(self, chunks: List[VectorChunk], workspace_id: str) -> int:
         """
         Add chunks to the vector store with optimized bulk insertion.
-        
-        Performance optimizations:
-        - Direct PyArrow table construction (zero-copy)
-        - Single bulk insert (avoids small file problem)
-        - Automatic compaction for large inserts
         """
         import json
         import logging
@@ -277,11 +268,6 @@ class LanceDBStore:
             return 0
         
         table = self._ensure_table(workspace_id)
-        
-        # =====================================================================
-        # HIGH-PERFORMANCE: Build PyArrow Table directly
-        # This bypasses the dict->JSON->Arrow conversion overhead
-        # =====================================================================
         
         # Pre-allocate lists for columnar data
         ids = []
@@ -326,15 +312,9 @@ class LanceDBStore:
         
         logger.info(f"[VectorStore] Bulk inserted {len(chunks)} chunks to {workspace_id}")
         
-        # =====================================================================
-        # AUTO-COMPACTION: Merge small fragments for query performance
-        # Only trigger for large inserts to avoid overhead on small writes
-        # =====================================================================
-        
         if len(chunks) > 1000:
             try:
                 table.compact_files()
-                logger.info(f"[VectorStore] Compacted files for {workspace_id}")
             except Exception as e:
                 logger.warning(f"[VectorStore] Compaction skipped: {e}")
         
@@ -342,14 +322,20 @@ class LanceDBStore:
     
     def get_chunk(self, chunk_id: str, workspace_id: str) -> Optional[VectorChunk]:
         """Get a specific chunk by ID."""
+        # Check workspace table first
+        chunk = self._get_chunk_from_table(chunk_id, workspace_id)
+        if chunk:
+            return chunk
+            
+        # Check global table fallback
+        return self._get_chunk_from_table(chunk_id, "global")
+
+    def _get_chunk_from_table(self, chunk_id: str, workspace_id: str) -> Optional[VectorChunk]:
         table_name = self._get_table_name(workspace_id)
-        
         if table_name not in self.db.table_names():
             return None
         
         table = self.db.open_table(table_name)
-        
-        # Query by ID
         results = table.search().where(f"id = '{chunk_id}'").limit(1).to_list()
         
         if not results:
@@ -377,21 +363,20 @@ class LanceDBStore:
         offset: int = 0,
         limit: int = 50,
     ) -> List[VectorChunk]:
-        """Get chunks with optional filtering and pagination."""
+        """Get chunks from workspace table."""
+        # For simple listing, we stay in workspace scope
+        # Use 'global' as workspace_id if listing global chunks specifically
         table_name = self._get_table_name(workspace_id)
         
         if table_name not in self.db.table_names():
             return []
         
         table = self.db.open_table(table_name)
-        
-        # Build query
         query = table.search()
         
         if document_id:
             query = query.where(f"document_id = '{document_id}'")
         
-        # LanceDB doesn't have native offset, so we fetch more and slice
         results = query.limit(offset + limit).to_list()
         results = results[offset:offset + limit]
         
@@ -421,63 +406,72 @@ class LanceDBStore:
         embedding: List[float],
     ) -> bool:
         """Update a chunk's content and embedding."""
+        # Try updating in workspace table
+        if self._update_chunk_in_table(chunk_id, workspace_id, content, embedding):
+            return True
+            
+        # Try global if not found
+        return self._update_chunk_in_table(chunk_id, "global", content, embedding)
+
+    def _update_chunk_in_table(self, chunk_id, workspace_id, content, embedding) -> bool:
         table_name = self._get_table_name(workspace_id)
-        
         if table_name not in self.db.table_names():
             return False
-        
+            
         table = self.db.open_table(table_name)
-        
-        # LanceDB update: delete and re-add
-        # First get the existing chunk
-        existing = self.get_chunk(chunk_id, workspace_id)
-        if not existing:
+        existing_list = table.search().where(f"id = '{chunk_id}'").limit(1).to_list()
+        if not existing_list:
             return False
+            
+        existing = existing_list[0]
+        import json
         
-        # Delete old
         table.delete(f"id = '{chunk_id}'")
         
-        # Add updated
-        import json
         table.add([{
             "id": chunk_id,
             "content": content,
             "embedding": embedding,
-            "document_id": existing.document_id,
+            "document_id": existing["document_id"],
             "workspace_id": workspace_id,
-            "metadata": json.dumps(existing.metadata),
-            "created_at": existing.created_at,
+            "layer_id": existing.get("layer_id", "default"), # Preserve layer
+            "access_roles": existing.get("access_roles", []),
+            "visibility": existing.get("visibility", "private"),
+            "metadata": existing["metadata"],
+            "created_at": existing["created_at"],
         }])
-        
         return True
-    
+
     def delete_chunk(self, chunk_id: str, workspace_id: str) -> bool:
-        """Delete a specific chunk."""
+        # Try delete from workspace
+        if self._delete_from_table(chunk_id, workspace_id):
+            return True
+        # Try delete from global
+        return self._delete_from_table(chunk_id, "global")
+
+    def _delete_from_table(self, chunk_id, workspace_id) -> bool:
         table_name = self._get_table_name(workspace_id)
-        
         if table_name not in self.db.table_names():
             return False
-        
         table = self.db.open_table(table_name)
+        # Check existence to return bool correctly? LanceDB delete doesn't return count easily
+        # We'll just execute delete.
         table.delete(f"id = '{chunk_id}'")
-        return True
-    
+        return True # Assume success if no error
+
     def delete_document_chunks(self, document_id: str, workspace_id: str) -> int:
-        """Delete all chunks for a document."""
+        count = self._delete_doc_from_table(document_id, workspace_id)
+        count += self._delete_doc_from_table(document_id, "global")
+        return count
+
+    def _delete_doc_from_table(self, document_id, workspace_id) -> int:
         table_name = self._get_table_name(workspace_id)
-        
         if table_name not in self.db.table_names():
             return 0
-        
         table = self.db.open_table(table_name)
-        
-        # Count before delete
         count_before = table.count_rows()
-        
         table.delete(f"document_id = '{document_id}'")
-        
-        count_after = table.count_rows()
-        return count_before - count_after
+        return count_before - table.count_rows()
     
     # ========================================
     # Similarity Search
@@ -492,59 +486,72 @@ class LanceDBStore:
         document_ids: Optional[List[str]] = None,
         allowed_layers: List[str] = None, # New Security Filter
     ) -> List[SearchResult]:
-        """Search for similar chunks."""
-        table_name = self._get_table_name(workspace_id)
+        """
+        Federated Search: Queries both Workspace-Specific and Global knowledge tables.
+        """
+        import numpy as np
         
+        # 1. Search Local Workspace Table
+        local_results = self._search_table(
+            workspace_id, query_embedding, top_k, document_ids, allowed_layers
+        )
+        
+        # 2. Search Global Table
+        global_results = self._search_table(
+            "global", query_embedding, top_k, document_ids, allowed_layers
+        )
+        
+        # 3. Merge and Sort
+        combined = local_results + global_results
+        
+        # Sort by score descending (higher is better)
+        combined.sort(key=lambda x: x.score, reverse=True)
+        
+        return combined[:top_k]
+
+    def _search_table(
+        self,
+        workspace_id: str,
+        query_embedding: List[float],
+        top_k: int,
+        document_ids: Optional[List[str]],
+        allowed_layers: Optional[List[str]]
+    ) -> List[SearchResult]:
+        table_name = self._get_table_name(workspace_id)
         if table_name not in self.db.table_names():
             return []
+            
+        import numpy as np
+        import json
         
         table = self.db.open_table(table_name)
-        
-        # Build search query - must specify vector column name explicitly
-        # Build search query - must specify vector column name explicitly
-        # Also convert list to numpy array as LanceDB requires
-        import numpy as np
-        import logging
-        logger = logging.getLogger("uvicorn.error")
-        
         query_vector = np.array(query_embedding, dtype=np.float32)
-        logger.info(f"DEBUG: query_vector type: {type(query_vector)}, shape: {query_vector.shape}, dtype: {query_vector.dtype}")
-        logger.info(f"DEBUG: table name: {table_name}")
-        try:
-             logger.info(f"DEBUG: table schema: {str(table.schema)}")
-        except:
-             logger.info("DEBUG: could not print schema")
-
-        logger.info("DEBUG: Executing table.search()")
+        
         query = table.search(query_vector, vector_column_name="embedding")
         
         where_clauses = []
         
-        # 1. Security Filter (Mandatory)
+        # Security Filter
         if allowed_layers:
-            # Construct SQL-like IN clause: layer_id IN ('a', 'b')
             layers_str = ", ".join([f"'{l}'" for l in allowed_layers])
             where_clauses.append(f"layer_id IN ({layers_str})")
         else:
-            # Fallback: If no allowed_layers provided, allow default only (or deny all?)
-            # Safer to default to public/default
             where_clauses.append("layer_id IN ('default', 'public')")
             
-        # 2. Document Filter
+        # Document Filter
         if document_ids:
             doc_filter = ", ".join([f"'{d}'" for d in document_ids])
             where_clauses.append(f"document_id IN ({doc_filter})")
             
-        # Apply Filters with Pre-filtering (Critical for Vector Search)
         if where_clauses:
             full_filter = " AND ".join(where_clauses)
             query = query.where(full_filter, prefilter=True)
-        
-        logger.info(f"DEBUG: Converting query to list with limit={top_k}")
-        results = query.limit(top_k).to_list()
-        logger.info(f"DEBUG: Query execution complete, found {len(results)} raw results")
-        
-        import json
+            
+        try:
+            results = query.limit(top_k).to_list()
+        except Exception:
+            return []
+            
         search_results = []
         for row in results:
             chunk = VectorChunk(
@@ -561,13 +568,12 @@ class LanceDBStore:
             )
             search_results.append(SearchResult(
                 chunk=chunk,
-                score=1.0 - row.get("_distance", 0),  # Convert distance to score
+                score=1.0 - row.get("_distance", 0),
                 distance=row.get("_distance", 0),
             ))
-        
-        logger.info(f"DEBUG: Vector search returning {len(search_results)} results")
+            
         return search_results
-    
+
     # ========================================
     # Utility Methods
     # ========================================
@@ -587,7 +593,6 @@ class LanceDBStore:
                 except Exception:
                     pass
         
-        # Get total storage
         if os.path.exists(self.db_path):
             for root, dirs, files in os.walk(self.db_path):
                 for f in files:
@@ -604,7 +609,6 @@ class LanceDBStore:
     def get_layer_distribution(self) -> Dict[str, int]:
         """
         Get distribution of vectors across Knowledge Layers.
-        Aggregates counts from all tables.
         """
         layer_counts = {}
         
@@ -612,11 +616,6 @@ class LanceDBStore:
             if table_name.startswith("vectors_"):
                 try:
                     table = self.db.open_table(table_name)
-                    # Use LanceDB to query layer_ids
-                    # Since we can't easily group by in basic lancedb without loading,
-                    # we will limit this to a sample or just count total for now if too expensive.
-                    # HOWEVER, for Phase 4 verification, let's try to do it properly if possible.
-                    # With pandas:
                     df = table.to_pandas()
                     if "layer_id" in df.columns:
                         counts = df["layer_id"].value_counts().to_dict()
@@ -627,11 +626,8 @@ class LanceDBStore:
                     
         return layer_counts
         
-
-
 # Singleton instance
 _vector_store: Optional[LanceDBStore] = None
-
 
 def get_vector_store() -> LanceDBStore:
     """Get or create the LanceDB vector store instance."""

@@ -1,5 +1,6 @@
 import { ABORT_STREAM_EVENT } from "@/utils/chat";
 import { Tooltip } from "react-tooltip";
+import { StopCircle } from "@phosphor-icons/react";
 
 export default function StopGenerationButton() {
   function emitHaltEvent() {
@@ -13,34 +14,14 @@ export default function StopGenerationButton() {
         onClick={emitHaltEvent}
         data-tooltip-id="stop-generation-button"
         data-tooltip-content="Stop generating response"
-        className="border-none text-white/60 cursor-pointer group -mr-1.5 mt-1.5"
+        className="border-none inline-flex items-center justify-center leading-none rounded-2xl cursor-pointer opacity-60 hover:opacity-100 light:opacity-100 light:hover:opacity-60 ml-4 group"
         aria-label="Stop generating"
       >
-        <svg
-          width="28"
-          height="28"
-          viewBox="0 0 28 28"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          style={{ transform: "scale(1.3)" }}
-          className="opacity-60 group-hover:opacity-100 light:opacity-100 light:group-hover:opacity-60"
-        >
-          <circle
-            cx="10"
-            cy="10.562"
-            r="9"
-            strokeWidth="2"
-            className="group-hover:stroke-primary-button stroke-white light:stroke-theme-text-secondary"
-          />
-          <rect
-            x="6.3999"
-            y="6.96204"
-            width="7.2"
-            height="7.2"
-            rx="2"
-            className="group-hover:fill-primary-button fill-white light:fill-theme-text-secondary"
-          />
-        </svg>
+        <StopCircle
+          color="#252525"
+          className="w-[22px] h-[22px] pointer-events-none text-[#252525]"
+          weight="fill"
+        />
       </button>
       <Tooltip
         id="stop-generation-button"

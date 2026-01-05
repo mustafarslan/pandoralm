@@ -20,21 +20,35 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create LayerType enum
+    # Create LayerType enum idempotently
+    op.execute("""
+    DO $$ BEGIN
+        CREATE TYPE layertype AS ENUM ('SYSTEM', 'ORGANIZATION', 'TEAM', 'USER');
+    EXCEPTION
+        WHEN duplicate_object THEN null;
+    END $$;
+    """)
+    
     layer_type_enum = postgresql.ENUM(
         'SYSTEM', 'ORGANIZATION', 'TEAM', 'USER',
         name='layertype',
-        create_type=True
+        create_type=False
     )
-    layer_type_enum.create(op.get_bind(), checkfirst=True)
     
-    # Create AccessLevel enum
+    # Create AccessLevel enum idempotently
+    op.execute("""
+    DO $$ BEGIN
+        CREATE TYPE accesslevel AS ENUM ('READ', 'WRITE', 'ADMIN');
+    EXCEPTION
+        WHEN duplicate_object THEN null;
+    END $$;
+    """)
+
     access_level_enum = postgresql.ENUM(
         'READ', 'WRITE', 'ADMIN',
         name='accesslevel',
-        create_type=True
+        create_type=False
     )
-    access_level_enum.create(op.get_bind(), checkfirst=True)
     
     # Create layers table
     op.create_table(

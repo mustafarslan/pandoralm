@@ -22,6 +22,7 @@ from app.api.v1.admin.layers import router as admin_layers_router
 from app.api.v1.user_layers import router as user_layers_router
 from app.api.v1.legacy import router as legacy_router
 from app.api.v1.workspace import router as workspace_router
+from app.api.v1.workspace_layers import router as workspace_layers_router
 
 from app.api.v1.stream import router as stream_router
 
@@ -41,6 +42,7 @@ router.include_router(cognitive_router, prefix="/router", tags=["Cognitive Route
 router.include_router(ops_router, prefix="/ops", tags=["Admin Console Operations"])
 router.include_router(legacy_router, tags=["Legacy Compatibility"]) # No prefix to match /setup-complete
 router.include_router(workspace_router, prefix="/workspace", tags=["Workspace Management"])
+router.include_router(workspace_layers_router, prefix="/workspace", tags=["Workspace Layers"])
 router.include_router(web_router, prefix="/web", tags=["Web Capture"])
 router.include_router(auth_router, tags=["Authentication & Layers"])
 router.include_router(admin_layers_router, tags=["Admin - Layers"])

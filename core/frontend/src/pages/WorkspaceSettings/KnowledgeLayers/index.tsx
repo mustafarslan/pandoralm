@@ -1,13 +1,17 @@
 import React, { useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { useLayerStore } from '@/store/useLayerStore';
 import { Layers, HardDrive, Shield, Lock, Info } from 'lucide-react';
 
 export default function KnowledgeLayersSettings() {
+    const { slug } = useParams();
     const { availableLayers, fetchLayers, isLoading } = useLayerStore();
 
     useEffect(() => {
-        fetchLayers();
-    }, [fetchLayers]);
+        if (slug) {
+            fetchLayers(slug);
+        }
+    }, [fetchLayers, slug]);
 
     // Separate layers
     const myLayer = availableLayers.find(l => l.type === 'USER');
@@ -74,8 +78,8 @@ export default function KnowledgeLayersSettings() {
                         <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden relative">
                             <div
                                 className={`h-full rounded-full transition-all duration-500 absolute left-0 top-0 ${getUsagePercent(myLayer.storage_used_bytes, myLayer.storage_quota_bytes) > 90
-                                        ? 'bg-red-500'
-                                        : 'bg-[#252525]' // ink-primary
+                                    ? 'bg-red-500'
+                                    : 'bg-[#252525]' // ink-primary
                                     }`}
                                 style={{ width: `${getUsagePercent(myLayer.storage_used_bytes, myLayer.storage_quota_bytes)}%` }}
                             />
@@ -106,8 +110,8 @@ export default function KnowledgeLayersSettings() {
                             <div key={layer.id} className="flex items-center justify-between p-3 border border-slate-100 rounded hover:bg-slate-50 transition-colors">
                                 <div className="flex items-center gap-3">
                                     <div className={`p-2 rounded-full ${layer.type === 'SYSTEM' ? 'bg-blue-100 text-blue-600' :
-                                            layer.type === 'ORG' ? 'bg-purple-100 text-purple-600' :
-                                                'bg-emerald-100 text-emerald-600'
+                                        layer.type === 'ORG' ? 'bg-purple-100 text-purple-600' :
+                                            'bg-emerald-100 text-emerald-600'
                                         }`}>
                                         <Layers size={16} />
                                     </div>

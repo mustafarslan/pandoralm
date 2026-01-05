@@ -20,13 +20,20 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create QuotaTier enum
+    # Create QuotaTier enum idempotently
+    op.execute("""
+    DO $$ BEGIN
+        CREATE TYPE quotatier AS ENUM ('FREE', 'PRO', 'ENTERPRISE');
+    EXCEPTION
+        WHEN duplicate_object THEN null;
+    END $$;
+    """)
+
     quota_tier_enum = postgresql.ENUM(
         'FREE', 'PRO', 'ENTERPRISE',
         name='quotatier',
-        create_type=True
+        create_type=False
     )
-    quota_tier_enum.create(op.get_bind(), checkfirst=True)
 
     # Add columns to layers table
     op.add_column('layers', sa.Column('owner_user_id', sa.String(255), nullable=True))

@@ -19,6 +19,7 @@ from app.models.document_status import IngestJobResponse, ProcessingStatus
 from app.services.document_status_service import get_document_status_service
 from app.workers.tasks.indexing import vectorize_document
 from app.auth.keycloak import verifier
+from app.core.security import require_auth
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class IngestRequest(BaseModel):
     """Request for document ingestion."""
     filename: str = Field(..., description="Filename in the hotdir")
     workspace_id: str = Field(default="default", description="Workspace ID")
-    target_layer_id: str = Field(default="default", description="Target Knowledge Layer ID")
+    target_layer_id: str = Field(..., description="Target Knowledge Layer ID (Required)")
     trigger_graph_indexing: bool = Field(
         default=True,
         description="Whether to trigger GraphRAG indexing after vectorization"
@@ -44,7 +45,7 @@ class SyncIngestRequest(BaseModel):
 async def process_document_async(
     file: UploadFile = File(...),
     workspace_id: str = Form("default"),
-    target_layer_id: str = Form("default"),
+    target_layer_id: str = Form(...),
     trigger_graph_indexing: bool = Form(True),
     token_payload: dict = Depends(verifier.verify_token) # Extract User ID for JIT check
 ) -> IngestJobResponse:
@@ -124,7 +125,7 @@ async def process_document_async(
     )
 
 
-@router.post("/process/sync")
+@router.post("/process/sync", dependencies=[Depends(require_auth)])
 async def process_document_sync(request: SyncIngestRequest):
     """
     Process a document synchronously (legacy endpoint).

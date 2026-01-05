@@ -24,7 +24,9 @@ from app.models.layer import (
     PermissionCreate,
     QuotaTier,
     QuotaUpdate,
-    BulkQuotaUpdate)
+    BulkQuotaUpdate
+)
+from app.models.workspace_layer_mapping import WorkspaceLayerMapping
 
 logger = logging.getLogger(__name__)
 
@@ -129,53 +131,60 @@ class LayerManager:
         self,
         user_roles: List[str],
         db: AsyncSession,
-        access_level: Optional[AccessLevel] = None
+        access_level: Optional[AccessLevel] = None,
+        workspace_id: Optional[str] = None
     ) -> List[Layer]:
         """
-        Core resolution engine with wildcard support.
+        Core resolution engine with wildcard support and workspace context.
         
         Resolution algorithm:
-        1. For each user role, find LayerPermissions where:
-           - role_pattern exactly matches the role, OR
-           - user role matches the role_pattern using SQL LIKE
-        2. Return distinct layers with matching permissions
+        1. Find layers where user matches permissions (ReBAC)
+        2. If workspace_id provided, filter to only layers mapped to workspace
         
         Args:
             user_roles: List of roles from Keycloak JWT
             db: Database session
             access_level: Optional filter for minimum access level
+            workspace_id: Optional workspace context to filter layers
             
         Returns:
             List of Layer entities the user can access
         """
-        if not user_roles:
-            # No roles = only system public layers
+        if not user_roles and not workspace_id:
+            # No roles & no context = only system public layers
             return await self._get_public_layers(db)
         
         # Build OR conditions for role matching
         conditions = []
         
-        for role in user_roles:
-            # Exact match: role_pattern = 'group:engineering'
-            conditions.append(LayerPermission.role_pattern == role)
-            
-            # Wildcard match: role LIKE role_pattern
-            # e.g., 'group:engineering' LIKE 'group:%' -> True
-            # We parameterize to prevent SQL injection
-            conditions.append(
-                text(f":role_{len(conditions)} LIKE REPLACE(role_pattern, '*', '%')")
-                .bindparams(**{f"role_{len(conditions)}": role})
-            )
+        # If user has roles, check permissions
+        if user_roles:
+            for role in user_roles:
+                # Exact match: role_pattern = 'group:engineering'
+                conditions.append(LayerPermission.role_pattern == role)
+                
+                # Wildcard match: role LIKE role_pattern
+                conditions.append(
+                    text(f":role_{len(conditions)} LIKE REPLACE(role_pattern, '*', '%')")
+                    .bindparams(**{f"role_{len(conditions)}": role})
+                )
         
-        # Base query
+        # Base query joining Permissions
         query = (
             select(Layer)
             .join(LayerPermission)
-            .where(or_(*conditions))
-            .where(Layer.is_soft_deleted == False)  # Filter soft-deleted
+            .where(Layer.is_soft_deleted == False)
             .distinct()
         )
         
+        # Apply Role Conditions
+        if conditions:
+            query = query.where(or_(*conditions))
+        
+        # Apply Workspace Context Filter
+        if workspace_id:
+            query = query.join(WorkspaceLayerMapping).where(WorkspaceLayerMapping.workspace_id == workspace_id)
+            
         # Optional access level filter
         if access_level:
             access_levels = self._get_access_level_hierarchy(access_level)

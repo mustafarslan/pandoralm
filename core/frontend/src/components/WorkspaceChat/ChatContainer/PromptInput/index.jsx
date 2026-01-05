@@ -308,7 +308,7 @@ export default function PromptInput({
                     ref={formRef}
                     type="submit"
                     disabled={isDisabled}
-                    className="border-none inline-flex justify-center rounded-2xl cursor-pointer opacity-60 hover:opacity-100 light:opacity-100 light:hover:opacity-60 ml-4 disabled:cursor-not-allowed group"
+                    className="border-none inline-flex items-center justify-center leading-none rounded-2xl cursor-pointer opacity-60 hover:opacity-100 light:opacity-100 light:hover:opacity-60 ml-4 disabled:cursor-not-allowed group"
                     data-tooltip-id="send-prompt"
                     data-tooltip-content={
                       isDisabled

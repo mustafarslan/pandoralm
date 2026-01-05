@@ -3,9 +3,10 @@ Graph Visualization Endpoints
 Data export for knowledge graph visualization
 """
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 
+from app.core.security import require_auth
 from app.services.graphrag import get_graph_store
 
 router = APIRouter()
@@ -36,7 +37,7 @@ class GraphDataResponse(BaseModel):
     stats: dict
 
 
-@router.get("/{workspace_id}", response_model=GraphDataResponse)
+@router.get("/{workspace_id}", response_model=GraphDataResponse, dependencies=[Depends(require_auth)])
 async def get_graph_visualization_data(
     workspace_id: str,
     entity_types: Optional[str] = Query(None, description="Comma-separated entity types to filter"),
@@ -51,6 +52,7 @@ async def get_graph_visualization_data(
     - D3.js Force Graph
     - vis.js Network
     """
+    target_ws = "*" if workspace_id.lower() == "global" else workspace_id
     graph_store = get_graph_store()
     
     # Check connectivity
@@ -67,7 +69,7 @@ async def get_graph_visualization_data(
         entities = []
         for t in type_filter:
             entities.extend(graph_store.get_entities(
-                workspace_id=workspace_id,
+                workspace_id=target_ws,
                 entity_type=t,
                 limit=limit_nodes // len(type_filter),
             ))
@@ -134,7 +136,7 @@ async def get_graph_visualization_data(
     )
 
 
-@router.get("/{workspace_id}/cytoscape")
+@router.get("/{workspace_id}/cytoscape", dependencies=[Depends(require_auth)])
 async def get_cytoscape_format(
     workspace_id: str,
     limit: int = Query(100, le=300),
@@ -237,7 +239,7 @@ def get_default_cytoscape_style() -> List[dict]:
     ]
 
 
-@router.get("/{workspace_id}/communities")
+@router.get("/{workspace_id}/communities", dependencies=[Depends(require_auth)])
 async def get_community_visualization(
     workspace_id: str,
     level: int = Query(0, ge=0, le=5),

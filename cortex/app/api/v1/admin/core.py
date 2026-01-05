@@ -3,7 +3,7 @@ Admin Endpoints
 Protected endpoints requiring admin or vector-ops roles
 """
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.core.security import UserContext, require_auth
@@ -197,3 +197,40 @@ async def reindex_all_workspaces() -> dict:
         "jobs": jobs,
         "total": len(jobs),
     }
+
+
+# ========================================
+# System Preferences (Frontend Compat)
+# ========================================
+
+@router.get("/system-preferences")
+async def get_system_preferences() -> dict:
+    """
+    Get system preferences for Frontend Settings page.
+    Maps environment variables to the format expected by AnythingLLM frontend.
+    """
+    from app.core.config import settings
+    
+    return {
+        "settings": {
+            "MultiUserMode": True, 
+            "AuthToken": settings.OPENAI_API_KEY, 
+            # Keycloak / Identity
+            "KeycloakRealm": settings.KEYCLOAK_REALM,
+            "KeycloakURL": settings.KEYCLOAK_PUBLIC_URL,
+            "KeycloakClientId": settings.KEYCLOAK_CLIENT_ID,
+            # Placeholder for Role Mapping (not yet configurable via Env)
+            "RoleMapping": [],
+            # Other common settings
+            "VectorDB": "lancedb",
+            "EmbeddingEngine": settings.LLM_PROVIDER,
+        }
+    }
+
+@router.get("/system-preferences-for")
+async def get_system_preferences_filtered(labels: str = Query(default="")) -> dict:
+    """
+    Get specific system preferences.
+    Returns the full set for now, as frontend usually handles filtering.
+    """
+    return await get_system_preferences()

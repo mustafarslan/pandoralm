@@ -20,6 +20,16 @@ export default function UploadFile({
   const [files, setFiles] = useState([]);
   const [fetchingUrl, setFetchingUrl] = useState(false);
   const [selectedLayer, setSelectedLayer] = useState("user");
+  const [availableLayers, setAvailableLayers] = useState([]);
+
+  // Fetch available layers (Global + Workspace)
+  useEffect(() => {
+    async function loadLayers() {
+      const layers = await System.getAllLayers();
+      setAvailableLayers(layers);
+    }
+    loadLayers();
+  }, []);
 
   const handleSendLink = async (e) => {
     e.preventDefault();
@@ -92,10 +102,12 @@ export default function UploadFile({
           onChange={(e) => setSelectedLayer(e.target.value)}
           className="w-full bg-[#FFFFFF] border border-[#545454] rounded-lg p-2.5 text-[#252525] text-sm focus:outline-none focus:border-[#252525] transition-colors appearance-none"
         >
-          <option value="system">System (Global)</option>
-          <option value="organization">Organization (All Teams)</option>
-          <option value="team">Team (Specific Group)</option>
           <option value="user">User (Private)</option>
+          {availableLayers.map((layer) => (
+            <option key={layer.id} value={layer.id}>
+              {layer.name} ({layer.type})
+            </option>
+          ))}
         </select>
       </div>
 

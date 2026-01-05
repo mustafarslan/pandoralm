@@ -38,6 +38,13 @@ function FileUploadProgressComponent({
   useEffect(() => {
     async function uploadFile() {
       setLoading(true);
+
+      // Auto-map layer if selecting a specific layer ID (UUID)
+      if (layerId && layerId.length > 20) {
+        setLoadingMessage("Linking layer...");
+        await Workspace.addLayer(slug, layerId);
+      }
+
       setLoadingMessage("Uploading file...");
       const start = Number(new Date());
       const formData = new FormData();

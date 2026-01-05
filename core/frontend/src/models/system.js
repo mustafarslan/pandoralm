@@ -1094,6 +1094,36 @@ const System = {
       });
   },
 
+  getWorkspaceLayers: async function (workspaceId) {
+    return await fetch(`${API_BASE}/workspace/${workspaceId}/layers`, {
+      method: "GET",
+      headers: baseHeaders(),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Could not fetch workspace layers.");
+        return res.json();
+      })
+      .catch((e) => {
+        console.error(e);
+        return [];
+      });
+  },
+
+  getAllLayers: async function () {
+    return await fetch(`${API_BASE}/ops/layers`, {
+      method: "GET",
+      headers: baseHeaders(),
+    })
+      .then((res) => res.json())
+      .then((res) => {
+        if (Array.isArray(res)) return res;
+        return res.layers || [];
+      })
+      .catch((e) => {
+        console.error(e);
+        return [];
+      });
+  },
 
   experimentalFeatures: {
     liveSync: LiveDocumentSync,

@@ -57,18 +57,9 @@ export default function VisualInspector() {
             setTotal(res.total || 0);
         } catch (e) {
             console.error(e);
-            // Fallback for demo/dev if backend not reachable
-            const mockChunks = Array.from({ length: pageSize }, (_, i) => ({
-                id: `chunk_${page}_${i}`,
-                content_preview: `Sample chunk content for item ${i + ((page - 1) * pageSize)}. This is a preview of the stored text vector...`,
-                source_file: `document_${Math.floor(i / 5)}.pdf`,
-                token_count: 150 + Math.floor(Math.random() * 200),
-                embedding_status: Math.random() > 0.1 ? 'completed' : 'pending',
-                created_at: new Date().toISOString()
-            }));
-            setChunks(mockChunks);
-            setTotal(100);
-            // showToast('Using mock data (API unavailable)', 'info');
+            showToast("Failed to fetch vector chunks", "error");
+            setChunks([]);
+            setTotal(0);
         } finally {
             setLoading(false);
         }

@@ -206,21 +206,25 @@ export default function ChatContainer({ workspace, knownHistory = [] }) {
       const attachments = promptMessage?.attachments ?? parseAttachments();
       window.dispatchEvent(new CustomEvent(CLEAR_ATTACHMENTS_EVENT));
 
-      await Workspace.multiplexStream({
-        workspaceSlug: workspace.slug,
-        threadSlug,
-        prompt: promptMessage.userMessage,
-        chatHandler: (chatResult) =>
-          handleChat(
-            chatResult,
-            setLoadingResponse,
-            setChatHistory,
-            remHistory,
-            _chatHistory,
-            setSocketId
-          ),
-        attachments,
-      });
+      try {
+        await Workspace.multiplexStream({
+          workspaceSlug: workspace.slug,
+          threadSlug,
+          prompt: promptMessage.userMessage,
+          chatHandler: (chatResult) =>
+            handleChat(
+              chatResult,
+              setLoadingResponse,
+              setChatHistory,
+              remHistory,
+              _chatHistory,
+              setSocketId
+            ),
+          attachments,
+        });
+      } finally {
+        setLoadingResponse(false);
+      }
       return;
     }
     loadingResponse === true && fetchReply();

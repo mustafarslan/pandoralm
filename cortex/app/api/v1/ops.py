@@ -16,6 +16,10 @@ from app.core.security import UserContext, require_auth
 from app.core.rbac import Permission
 from app.services import get_vector_store
 from app.services.graphrag import get_graph_store
+from app.core.database import get_db
+from app.services.security.layer_manager import layer_manager
+from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
 
 router = APIRouter()
 
@@ -206,76 +210,53 @@ async def list_job_history() -> dict:
     dependencies=[Depends(Permission.vector_ops())],
 )
 async def list_layers(
-    include_vector_counts: bool = False,
+    include_vector_counts: bool = True,
+    db: AsyncSession = Depends(get_db),
 ) -> List[Dict[str, Any]]:
     """
     Get active Knowledge Layers and their stats.
     
     Used by Governance Matrix to show distribution of data.
+    Now backed by Postgres, with counts from Vector Store (Best Effort).
     """
-    vector_store = get_vector_store()
+    # 1. Get Real Layers from DB
+    real_layers = await layer_manager.list_layers(db)
     
-    collections = vector_store.list_collections() # [{'workspace_id': 'test1', 'total_chunks': 1211}, ...]
+    # 2. Get Counts (Best Effort, Non-Blocking)
+    counts = {}
+    if include_vector_counts:
+        try:
+            vector_store = get_vector_store()
+            # Offload blocking IO to thread pool to prevent API hanging
+            # if LanceDB is locked by Indexing process.
+            colls = await asyncio.to_thread(vector_store.list_collections)
+            counts = {c['workspace_id']: c['total_chunks'] for c in colls}
+        except Exception as e:
+            print(f"Stats warning in list_layers: {e}")
+
+    # 3. Format Response
+    results = []
     
-    # 1. Define the Canonical Layers (The "4 Contexts")
-    # Using specific IDs to map to the UI icons/colors automatically
-    layers_map = {
-        "system_core": {
-            "id": "system_core",
-            "name": "System", 
-            "type": "SYSTEM", 
-            "vector_count": 0,
-            "size_bytes": 0,
-            "permissions": ["admin", "system_maintainer"]
-        },
-        "org_global": {
-            "id": "org_global",
-            "name": "Organization", 
-            "type": "ORG", 
-            "vector_count": 0,
-            "size_bytes": 0,
-            "permissions": ["admin", "employee"]
-        },
-        "team_engineering": {
-            "id": "team_engineering",
-            "name": "Engineering", 
-            "type": "TEAM", 
-            "vector_count": 0,
-            "size_bytes": 0,
-            "permissions": ["admin", "engineer"]
-        },
-        "user_private": {
-            "id": "user_private",
-            "name": "User (Private)", 
-            "type": "USER", 
-            "vector_count": 0,
-            "size_bytes": 0,
-            "permissions": ["admin", "owner"]
-        }
-    }
-    
-    # 2. Bucket Data into Layers
-    for coll in collections:
-        ws_id = coll["workspace_id"]
-        count = coll["total_chunks"]
+    # Map layers
+    for layer in real_layers:
+        # Match count by UUID (target_workspace_id = layer_id for global layers)
+        c = counts.get(str(layer.id), 0)
         
-        # Categorization Logic
-        if ws_id in ["default", "system", "core", "test-workspace"]:
-            layers_map["system_core"]["vector_count"] += count
-            layers_map["system_core"]["size_bytes"] += coll.get("storage_bytes", 0)
-            
-        elif "engineering" in ws_id or "dev" in ws_id or "team" in ws_id:
-            layers_map["team_engineering"]["vector_count"] += count
-            layers_map["team_engineering"]["size_bytes"] += coll.get("storage_bytes", 0)
-            
-        elif ws_id.startswith("user"): # Explicit user mapping based on request
-            layers_map["user_private"]["vector_count"] += count
-            layers_map["user_private"]["size_bytes"] += coll.get("storage_bytes", 0)
-            
-        else:
-            # Default fallback for unclassified workspaces -> Organization
-            layers_map["org_global"]["vector_count"] += count
-            layers_map["org_global"]["size_bytes"] += coll.get("storage_bytes", 0)
+        # Also check for legacy mappings if needed (e.g. system_core)
+        # But we prefer UUIDs now.
+        
+        results.append({
+            "id": str(layer.id),
+            "name": layer.name,
+            "type": layer.type.value,
+            "color": layer.color,
+            "vector_count": c,
+            "size_bytes": layer.storage_used_bytes,
+            "permissions": ["read", "write"] # Simplified for OPS view
+        })
+        
+    return results
+
 
 
 # =============================================================================

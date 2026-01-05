@@ -3,8 +3,11 @@ System Utilities Endpoints
 VRAM calculator, model info, and health checks
 """
 from typing import List, Optional
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from pydantic import BaseModel
+
+from app.core.rbac import Permission
+from app.core.security import require_auth
 
 from app.services import get_vram_calculator, get_embedding_service, Precision
 
@@ -199,7 +202,7 @@ async def list_available_models(provider: Optional[str] = None) -> List[str]:
         return []
 
 
-@router.post("/update-env")
+@router.post("/update-env", dependencies=[Depends(Permission.admin())])
 async def update_env_stub(request: dict) -> dict:
     """
     Stub for updating system env variables (Pandora Frontend compatibility).

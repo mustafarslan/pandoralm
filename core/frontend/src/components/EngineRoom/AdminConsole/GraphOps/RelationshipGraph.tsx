@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Network, Search, Loader2, X, RefreshCw, Layers } from 'lucide-react';
 import { cortexGet, cortexDelete } from '@/utils/cortexApi';
 import showToast from '@/utils/toast';
+import { GraphViewer } from '@/components/GraphViewer';
 
 export default function RelationshipGraph() {
     const [loading, setLoading] = useState(false);
@@ -59,6 +60,7 @@ export default function RelationshipGraph() {
                         onChange={(e) => setLayerId(e.target.value)}
                         className="px-3 py-1.5 text-sm rounded-lg border border-[var(--ink-border)] bg-white text-[var(--ink-body)] focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                     >
+                        <option value="global">Global Knowledge Graph</option>
                         {layers.map((layer) => (
                             <option key={layer.id} value={layer.id}>
                                 {layer.name} ({layer.type})
@@ -88,42 +90,22 @@ export default function RelationshipGraph() {
             </div>
 
             <div
-                ref={containerRef}
-                className="flex-1 bg-[var(--ink-bg)] rounded-xl border border-[var(--ink-border)] relative overflow-hidden min-h-[400px] flex items-center justify-center"
+                className="flex-1 bg-[var(--ink-bg)] rounded-xl border border-[var(--ink-border)] relative overflow-hidden min-h-[400px] flex items-center justify-center p-0"
             >
-                {loading ? (
-                    <div className="text-center">
-                        <Loader2 size={32} className="animate-spin text-[var(--ink-heading)] mx-auto mb-2" />
-                        <p className="text-xs text-[var(--ink-meta)]">Constructing Knowledge Graph...</p>
-                    </div>
-                ) : docId ? (
-                    <div className="text-center p-8">
-                        <Network size={48} className="text-slate-200 mx-auto mb-4" />
-                        <p className="text-sm text-[var(--ink-meta)]">
-                            Graph visualization mock. <br />
-                            Layer: {layerId}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="text-center text-[var(--ink-meta)]">
-                        <p>Enter a document ID to start inspection</p>
-                    </div>
-                )}
+                <GraphViewer
+                    workspaceId={layerId}
+                    height="100%"
+                    apiBaseUrl="/api/v1"
+                />
             </div>
 
+            {/* 
             {docId && !loading && (
                 <div className="bg-white border border-[var(--ink-border)] rounded-lg p-3 text-xs">
-                    <h4 className="font-bold text-[var(--ink-heading)] mb-2">Selected Relationship</h4>
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-0.5 border border-[var(--ink-border)] rounded font-medium">Mustafa Arslan</span>
-                        <span className="text-[var(--ink-meta)] text-[10px] uppercase">WORKS_ON</span>
-                        <span className="px-2 py-0.5 border border-[var(--ink-border)] rounded font-medium">Project Pandora</span>
-                    </div>
-                    <button className="text-[var(--ink-heading)] hover:bg-[var(--ink-page)] px-2 py-1 rounded flex items-center gap-1 font-medium transition-colors border border-[var(--ink-border)]">
-                        <X size={12} /> Delete Relationship
-                    </button>
+                    // Implementation needed for relationship details
                 </div>
-            )}
+            )} 
+            */}
         </div>
     );
 }

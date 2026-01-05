@@ -225,6 +225,11 @@ const Workspace = {
         ctrl.abort();
         throw new Error();
       },
+      onclose() {
+        // Connection closed by server, do not retry.
+        ctrl.abort();
+        throw new Error("Stream closed");
+      },
     });
   },
   all: async function () {
@@ -264,6 +269,17 @@ const Workspace = {
     })
       .then((res) => res.ok)
       .catch(() => false);
+  },
+  addLayer: async function (slug, layerId) {
+    return await fetch(`${API_BASE}/workspace/${slug}/layers/${layerId}`, {
+      method: "POST",
+      headers: baseHeaders(),
+    })
+      .then((res) => res.ok)
+      .catch((e) => {
+        console.error(e);
+        return false;
+      });
   },
   uploadFile: async function (slug, formData, layerId = "user") {
     const headers = baseHeaders();

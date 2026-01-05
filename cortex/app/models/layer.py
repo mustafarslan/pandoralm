@@ -1,9 +1,3 @@
-"""
-Knowledge Layer Models (SQLAlchemy)
-Database-driven ReBAC for multi-tenant vector partitioning.
-
-Part of Phase 5-3: Enterprise Security & Governance
-"""
 from datetime import datetime
 from typing import List, Optional, TYPE_CHECKING
 from uuid import uuid4
@@ -27,6 +21,7 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+    from app.models.workspace_layer_mapping import WorkspaceLayerMapping
 
 
 class LayerType(str, enum.Enum):
@@ -85,12 +80,27 @@ class Layer(Base):
     )
     storage_quota_bytes: Mapped[int] = mapped_column(BigInteger, default=104857600)  # 100MB
     storage_used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    
+    # Federated Knowledge (Phase 6)
+    is_global: Mapped[bool] = mapped_column(Boolean, default=False)
+    """
+    Global layers are shared across all workspaces.
+    Only SYSTEM/ORGANIZATION/ENGINEERING types should be global.
+    USER layers are always private.
+    """
+
     is_soft_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     
     # Relationships
     permissions: Mapped[List["LayerPermission"]] = relationship(
         "LayerPermission",
+        back_populates="layer",
+        cascade="all, delete-orphan"
+    )
+    
+    workspace_mappings: Mapped[List["WorkspaceLayerMapping"]] = relationship(
+        "WorkspaceLayerMapping",
         back_populates="layer",
         cascade="all, delete-orphan"
     )
@@ -110,6 +120,7 @@ class Layer(Base):
             "quota_tier": self.quota_tier.value,
             "storage_quota_bytes": self.storage_quota_bytes,
             "storage_used_bytes": self.storage_used_bytes,
+            "is_global": self.is_global,
             "is_soft_deleted": self.is_soft_deleted,
             "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
         }

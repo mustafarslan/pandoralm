@@ -218,7 +218,7 @@ OUTPUT FORMAT:
             
             # --- Emit Citations ---
             if context.sources:
-                yield StreamProtocol.thought("CITATIONS", f"Found {len(context.sources)} source documents", "SYSTEM_1")
+                # yield StreamProtocol.thought("CITATIONS", f"Found {len(context.sources)} source documents", "SYSTEM_1")
                 for idx, source in enumerate(context.sources[:5], 1):
                     yield StreamProtocol.citation(
                         source_id=source.get("document_id", f"source-{idx}"),

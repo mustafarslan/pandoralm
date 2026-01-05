@@ -17,6 +17,7 @@ from app.models.layer import (
     PermissionCreate,
     PermissionResponse,
 )
+from app.models.workspace import Workspace
 
 __all__ = [
     # Document Status
@@ -33,4 +34,6 @@ __all__ = [
     "LayerResponse",
     "PermissionCreate",
     "PermissionResponse",
+    # Workspace
+    "Workspace",
 ]

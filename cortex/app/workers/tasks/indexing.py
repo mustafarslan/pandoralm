@@ -133,6 +133,26 @@ def vectorize_document(
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
+        # ---------------------------------------------------------
+        # Federated Layer Routing Logic
+        # ---------------------------------------------------------
+        target_workspace_id = workspace_id
+        if layer_id and layer_id != "default":
+            async def check_layer_global():
+                try:
+                    from app.core.database import async_session_maker as async_session_factory
+                    from app.models.layer import Layer
+                    async with async_session_factory() as session:
+                         layer = await session.get(Layer, layer_id)
+                         return layer.is_global if layer else False
+                except Exception as e:
+                    logger.warning(f"Failed to check global layer status: {e}")
+                    return False
+
+            if loop.run_until_complete(check_layer_global()):
+                target_workspace_id = "global"
+                logger.info(f"Routing document {document_id} to GLOBAL vector store (Layer {layer_id})")
+        
         try:
             # Step 2: Chunk text (30%) - Parallel/Process Pool
             self.update_state(state='PROGRESS', meta={
@@ -210,7 +230,7 @@ def vectorize_document(
             )
             
             loop.run_until_complete(
-                vector_store.add_chunks_batch(embedded_chunks, workspace_id)
+                vector_store.add_chunks_batch(embedded_chunks, target_workspace_id)
             )
             
         finally:
@@ -241,6 +261,7 @@ def vectorize_document(
             trigger_graph_indexing_task.delay(
                 document_id=document_id,
                 workspace_id=workspace_id,
+                layer_id=layer_id,
                 chunk_count=len(embedded_chunks),
             )
         
@@ -280,6 +301,7 @@ def trigger_graph_indexing_task(
     self,
     document_id: str,
     workspace_id: str,
+    layer_id: str = "default",
     chunk_count: int = 0,
 ) -> Dict[str, Any]:
     """
@@ -298,6 +320,7 @@ def trigger_graph_indexing_task(
     Args:
         document_id: Document to index
         workspace_id: Workspace the document belongs to
+        layer_id: Target Knowledge Layer ID
         chunk_count: Number of chunks (for logging)
     
     Returns:
@@ -311,7 +334,7 @@ def trigger_graph_indexing_task(
     
     logger.info(
         f"[Rate Limited] Starting incremental graph indexing for {document_id} "
-        f"(workspace: {workspace_id}, chunks: {chunk_count})"
+        f"(workspace: {workspace_id}, layer: {layer_id}, chunks: {chunk_count})"
     )
     
     try:
@@ -349,6 +372,7 @@ def trigger_graph_indexing_task(
                 indexer.index_document_incrementally(
                     doc_id=document_id,
                     workspace_id=workspace_id,
+                    layer_id=layer_id,
                     progress_callback=progress_callback,
                 )
             )

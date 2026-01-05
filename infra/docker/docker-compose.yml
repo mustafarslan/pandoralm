@@ -39,15 +39,15 @@ services:
       postgres:
         condition: service_healthy
       pandora-cortex:
-        condition: service_started
+        condition: service_healthy
       keycloak:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ../../core/server/storage:/app/server/storage
       - lancedb_data:/app/server/storage/lancedb
       - ../../core/server/endpoints/api/ops:/app/server/endpoints/api/ops
       - ../../core/collector/hotdir:/app/collector/hotdir
-      - ../../core/frontend/dist:/app/server/public
+      # - ../../core/frontend/dist:/app/server/public
       - pandora-shared-storage:/app/shared/storage
       - pandora-shared-hotdir:/app/shared/hotdir
     networks:
@@ -225,7 +225,7 @@ services:
       redis:
         condition: service_healthy
       pandora-cortex:
-        condition: service_started
+        condition: service_healthy
     networks:
       - pandora-network
 
@@ -318,6 +318,12 @@ services:
       - "8080:8080"
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy

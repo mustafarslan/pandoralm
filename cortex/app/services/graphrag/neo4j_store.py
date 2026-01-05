@@ -214,13 +214,29 @@ class Neo4jGraphStore:
         limit: int = 100,
     ) -> List[Entity]:
         """Get entities with optional type filter."""
-        if entity_type:
-            query = """
-            MATCH (e:Entity {workspace_id: $workspace_id, type: $type})
-            RETURN e
-            LIMIT $limit
-            """
-            params = {"workspace_id": workspace_id, "type": entity_type, "limit": limit}
+        if workspace_id == "*":
+            # Global Query
+            if entity_type:
+                query = """
+                MATCH (e:Entity {type: $type})
+                RETURN e
+                LIMIT $limit
+                """
+                params = {"type": entity_type, "limit": limit}
+            else:
+                query = """
+                MATCH (e:Entity)
+                RETURN e
+                LIMIT $limit
+                """
+                params = {"limit": limit}
+        elif entity_type:
+             query = """
+             MATCH (e:Entity {workspace_id: $workspace_id, type: $type})
+             RETURN e
+             LIMIT $limit
+             """
+             params = {"workspace_id": workspace_id, "type": entity_type, "limit": limit}
         else:
             query = """
             MATCH (e:Entity {workspace_id: $workspace_id})
@@ -310,14 +326,24 @@ class Neo4jGraphStore:
             conditions.append("b.id = $target_id")
             params["target_id"] = target_id
         
-        query = f"""
-        MATCH (a:Entity)-[r:RELATES_TO]->(b:Entity)
-        WHERE a.workspace_id = $workspace_id
-        {"AND a.id = $source_id" if source_id else ""}
-        {"AND b.id = $target_id" if target_id else ""}
-        RETURN r, a.id AS source_id, b.id AS target_id
-        LIMIT $limit
-        """
+        if workspace_id == "*":
+             query = f"""
+             MATCH (a:Entity)-[r:RELATES_TO]->(b:Entity)
+             WHERE 1=1
+             {"AND a.id = $source_id" if source_id else ""}
+             {"AND b.id = $target_id" if target_id else ""}
+             RETURN r, a.id AS source_id, b.id AS target_id
+             LIMIT $limit
+             """
+        else:
+             query = f"""
+             MATCH (a:Entity)-[r:RELATES_TO]->(b:Entity)
+             WHERE a.workspace_id = $workspace_id
+             {"AND a.id = $source_id" if source_id else ""}
+             {"AND b.id = $target_id" if target_id else ""}
+             RETURN r, a.id AS source_id, b.id AS target_id
+             LIMIT $limit
+             """
         
         relationships = []
         with self.driver.session() as session:

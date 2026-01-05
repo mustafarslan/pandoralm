@@ -28,7 +28,7 @@ interface LayerState {
     getActiveLayerHeaders: () => Record<string, string>;
     hasWriteAccess: (layerId: string) => boolean;
     canAccessLayer: (layerId: string) => boolean;
-    fetchLayers: () => Promise<void>;
+    fetchLayers: (workspaceId: string) => Promise<void>;
 }
 
 export const useLayerStore = create<LayerState>()(
@@ -81,16 +81,16 @@ export const useLayerStore = create<LayerState>()(
                 return availableLayers.some((l) => l.id === layerId);
             },
 
-            fetchLayers: async () => {
+            fetchLayers: async (workspaceId: string) => {
                 set({ isLoading: true });
-                const layers = await System.getMyLayers();
+                const layers = await System.getWorkspaceLayers(workspaceId);
                 if (Array.isArray(layers)) {
                     const mapped = layers.map((l: any) => ({
                         id: l.id,
                         name: l.name,
                         type: l.type,
                         color: l.color,
-                        access: (l.owner_user_id ? 'ADMIN' : 'READ') as AccessLevel, // TODO: Real RBAC mapping
+                        access: (l.access_mode === 'write' ? 'WRITE' : 'READ') as AccessLevel, // Mapping access_mode
                         permissions: [],
                         quota_tier: l.quota_tier,
                         storage_quota_bytes: l.storage_quota_bytes,
