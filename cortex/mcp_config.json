@@ -1,15 +1,19 @@
 {
     "tools": {
         "filesystem": {
-            "url": "http://mcp-fs.pandora-agents.svc.cluster.local:8080/sse",
+            "url": "http://localhost:8083/sse",
             "description": "Local filesystem access"
         },
         "web_search": {
-            "url": "http://mcp-search.pandora-agents.svc.cluster.local:8080/sse",
+            "url": "http://localhost:8082/sse",
             "description": "Brave Search / Google Search"
         },
+        "arxiv_search": {
+            "url": "http://localhost:8084/sse",
+            "description": "Search and download academic papers from arXiv"
+        },
         "git": {
-            "url": "http://mcp-git.pandora-agents.svc.cluster.local:8080/sse",
+            "url": "http://localhost:8081/sse",
             "description": "Git repository operations"
         }
     },
@@ -17,7 +21,8 @@
         "researcher": {
             "tools": [
                 "web_search",
-                "filesystem"
+                "filesystem",
+                "arxiv_search"
             ]
         },
         "coder": {

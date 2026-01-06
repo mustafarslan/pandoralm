@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
-RUN pip install poetry
+RUN pip install --upgrade pip && \
+    pip install poetry
 
 # Copy dependency files
 COPY pyproject.toml README.md ./

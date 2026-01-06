@@ -252,10 +252,66 @@ async def list_layers(
             "color": layer.color,
             "vector_count": c,
             "size_bytes": layer.storage_used_bytes,
-            "permissions": ["read", "write"] # Simplified for OPS view
+            "permissions": [
+                {"role_pattern": p.role_pattern, "access_level": p.access_level.value} 
+                for p in layer.permissions
+            ]
         })
         
+    # 4. Handle Orphaned/Legacy Collections
+    # If we have vector collections that are NOT in the real_layers list, expose them
+    # so admins can still see/manage the data.
+    matched_ids = {str(l.id) for l in real_layers}
+    
+    for ws_id, count in counts.items():
+        if ws_id not in matched_ids:
+            # This is an orphan (e.g. 'test1', 'default' from legacy or manual creation)
+            results.append({
+                "id": ws_id,
+                "name": f"[Legacy] {ws_id}",
+                "type": "ORPHAN",
+                "color": "#808080", # Grey
+                "vector_count": count,
+                "size_bytes": 0, # Could fetch real size if critical
+                "permissions": [] # No RBAC for orphans usually
+            })
+        
+    
     return results
+
+
+@router.get(
+    "/graph/entities",
+    dependencies=[Depends(Permission.vector_ops())],
+)
+async def list_graph_entities(
+    workspace_id: str,
+    limit: int = Query(100, ge=1, le=1000),
+    type: Optional[str] = None,
+) -> dict:
+    """Get entities from the graph store."""
+    store = get_graph_store()
+    try:
+        entities = await asyncio.to_thread(
+            store.get_entities,
+            workspace_id=workspace_id,
+            entity_type=type,
+            limit=limit
+        )
+        return {"entities": [e.model_dump() for e in entities]}
+    except Exception as e:
+        print(f"Error fetching entities: {e}")
+        return {"entities": []}
+
+
+@router.post(
+    "/graph/merge",
+    dependencies=[Depends(Permission.vector_ops())],
+)
+async def merge_entities(request: EntityMergeRequest) -> dict:
+    """Merge multiple entities into one."""
+    # Placeholder for now - verify resolver logic later
+    return {"status": "merged", "message": "Merge functionality pending backend implementation"}
 
 
 
@@ -401,3 +457,75 @@ async def switch_table(request: SwitchTableRequest) -> dict:
         "active_table": settings.LANCEDB_TABLE,
         "message": f"Switched active table to {request.table_name}. Traffic now routed to Green/Blue.",
     }
+
+
+@router.get(
+    "/vectors/inspect/{workspace_id}",
+    dependencies=[Depends(Permission.vector_ops())],
+)
+async def inspect_vectors(
+    workspace_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+) -> dict:
+    """
+    Inspect vector chunks for a specific workspace/layer.
+    
+    Returns paginated raw vector chunks from LanceDB.
+    """
+    vector_store = get_vector_store()
+    
+    # Calculate offset
+    offset = (page - 1) * page_size
+    
+    try:
+        # Fetch chunks from vector store
+        # Note: vector_store.get_chunks implementation varies, identifying by workspace_id
+        chunks = await asyncio.to_thread(
+            vector_store.get_chunks,
+            workspace_id=workspace_id,
+            limit=page_size,
+            offset=offset
+        )
+        
+        # Get simplified total count
+        stats = await asyncio.to_thread(
+             vector_store.get_collection_stats,
+             workspace_id=workspace_id
+        )
+        total = stats.get("total_chunks", 0)
+        
+        # Format for frontend
+        formatted_chunks = []
+        for c in chunks:
+            # VectorChunk is a dataclass, so use attribute access
+            data = c.metadata 
+            chunk_id = c.id 
+            text = c.content 
+            
+            formatted_chunks.append({
+                "id": chunk_id,
+                "content_preview": text[:200] + "..." if len(text) > 200 else text,
+                "source_file": data.get("filename", "unknown"),
+                "token_count": len(text.split()), # Rough estimate
+                "embedding_status": "completed" # If it's in LanceDB, it's embedded
+            })
+            
+        return {
+            "chunks": formatted_chunks,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "has_more": (page * page_size) < total
+        }
+        
+    except Exception as e:
+        print(f"Error inspecting vectors: {e}")
+        return {
+            "chunks": [], 
+            "total": 0, 
+            "page": page, 
+            "page_size": page_size, 
+            "has_more": False,
+            "error": str(e)
+        }

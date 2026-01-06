@@ -17,8 +17,9 @@ This document outlines the future development milestones and planned features fo
 
 ### 🔌 Distributed Agents
 
+- [x] **arXiv Search Agent** (MCP)
+  - Search and download academic papers from arXiv.org
 - [ ] **Google Search Agent** (MCP)
-  - Full integration with Google Custom Search API.
 - [ ] **Slack Connector** (MCP)
   - Bi-directional chat capability via Slack.
 

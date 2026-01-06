@@ -1,0 +1,120 @@
+---
+# MCP arXiv Agent Deployment
+# Provides academic paper search capabilities via arXiv API
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pandora-os.fullname" . }}-mcp-arxiv
+  labels:
+    {{- include "pandora-os.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp-arxiv
+    app.kubernetes.io/part-of: pandora-agents
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "pandora-os.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mcp-arxiv
+  template:
+    metadata:
+      labels:
+        {{- include "pandora-os.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: mcp-arxiv
+        app.kubernetes.io/part-of: pandora-agents
+    spec:
+      containers:
+        - name: mcp-bridge
+          image: pandora/mcp-bridge:latest
+          imagePullPolicy: IfNotPresent
+          args: ["uvx", "arxiv-mcp-server", "--storage-path", "/data/papers"]
+          ports:
+            - name: sse
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: paper-storage
+              mountPath: /data/papers
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: sse
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: sse
+            initialDelaySeconds: 15
+            periodSeconds: 30
+      volumes:
+        - name: paper-storage
+          persistentVolumeClaim:
+            claimName: {{ include "pandora-os.fullname" . }}-arxiv-pvc
+
+---
+# MCP arXiv Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pandora-os.fullname" . }}-mcp-arxiv
+  labels:
+    {{- include "pandora-os.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp-arxiv
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: sse
+      protocol: TCP
+      name: sse
+  selector:
+    {{- include "pandora-os.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp-arxiv
+
+---
+# PVC for Paper Storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "pandora-os.fullname" . }}-arxiv-pvc
+  labels:
+    {{- include "pandora-os.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp-arxiv
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
+---
+# NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pandora-os.fullname" . }}-mcp-arxiv-policy
+  labels:
+    {{- include "pandora-os.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp-arxiv
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pandora-os.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mcp-arxiv
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: cortex
+      ports:
+        - protocol: TCP
+          port: 8080

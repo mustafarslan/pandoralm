@@ -40,6 +40,19 @@ services:
       - ./data:/data
     ports:
       - "8083:8080"
+
+  mcp-arxiv:
+    image: mcp-bridge:latest
+    build:
+      context: ../../mcp-bridge
+      dockerfile: Dockerfile
+    environment:
+      - MCP_COMMAND=uvx
+      - MCP_ARGS=arxiv-mcp-server --storage-path /data/papers
+    volumes:
+      - arxiv-papers:/data/papers
+    ports:
+      - "8084:8080"
     networks:
       - pandora-network
 
@@ -47,3 +60,6 @@ networks:
   pandora-network:
     external: true
     name: pandora_network
+
+volumes:
+  arxiv-papers:

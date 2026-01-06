@@ -167,7 +167,9 @@ class HybridQueryRouter:
             intent_mode_map = {
                 IntentType.FACTUAL: QueryMode.VECTOR,
                 IntentType.THEMATIC: QueryMode.GRAPH,
-                IntentType.RESEARCH: QueryMode.RESEARCH,  # Deep research maps to agentic
+                IntentType.THEMATIC: QueryMode.GRAPH,
+                IntentType.RESEARCH: QueryMode.RESEARCH,
+                IntentType.AGENTIC: QueryMode.RESEARCH,  # Map generic agent intent to ResearchAgent
                 IntentType.CODE_GENERATION: QueryMode.VECTOR,
             }
             

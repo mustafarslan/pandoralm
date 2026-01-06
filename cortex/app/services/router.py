@@ -143,7 +143,7 @@ Your task is to classify the user's query into one of four intent types:
    - "How does X relate to Y?", "What are the themes?", "Compare A and B"
    
 3. **RESEARCH**: Requires external data, web search, or multi-step investigation.
-   - "Research X", "Find latest news about Y", "Investigate competitor Z"
+   - "Research X", "Find latest news about Y", "search arXiv for Z", "find papers on A"
    
 4. **CODE_GENERATION**: User wants code output.
    - "Write code for X", "Create a function that Y", "Generate script to Z"
@@ -171,7 +171,7 @@ Schema: {"intent": "factual"|"thematic"|"research"|"code_generation", "confidenc
 Rules:
 - factual: "What is X?", simple fact questions
 - thematic: "How does X relate to Y?", cross-document analysis  
-- research: "Research X", external data needed
+- research: "Research X", "search arXiv", "find papers", external data
 - code_generation: "Write code for X"
 
 Query: "{query}"
@@ -452,8 +452,34 @@ class QueryIntentClassifier:
         """
         start_time = time.time()
         
+        start_time = time.time()
+        
+        # 0. Deterministic Rules (Priority Override)
+        # Handle explicit agent invocation
+        if query.strip().startswith("@agent"):
+            return ClassificationResult(
+                intent=IntentType.AGENTIC,
+                confidence=1.0,
+                reasoning="Deterministic override: @agent prefix from user",
+                latency_ms=0,
+                model_used="deterministic_rule",
+                provider="rule"
+            )
+            
+        # Handle known arXiv search patterns
+        lower_query = query.lower()
+        if "arxiv" in lower_query and ("search" in lower_query or "find" in lower_query or "paper" in lower_query):
+            return ClassificationResult(
+                intent=IntentType.RESEARCH,
+                confidence=1.0,
+                reasoning="Deterministic override: explicit arXiv search request",
+                latency_ms=0,
+                model_used="deterministic_rule",
+                provider="rule"
+            )
+
         try:
-            # 0. Try Semantic Router (Fastest, Local)
+            # 1. Try Semantic Router (Fastest, Local)
             try:
                 from app.services.semantic_router import get_semantic_router
                 semantic_router = get_semantic_router()

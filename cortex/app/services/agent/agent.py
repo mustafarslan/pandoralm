@@ -10,6 +10,8 @@ from app.core.config import settings
 from app.services.mcp.client import get_mcp_client
 from app.models.stream import StreamEvent, StreamEventType
 
+logger = logging.getLogger(__name__)
+
 class ResearchAgent:
     """
     Agent capable of using MCP tools to conduct research.
@@ -146,3 +148,17 @@ class ResearchAgent:
 
         yield StreamEvent(event=StreamEventType.THOUGHT, data={"step": "Limit Reached", "content": "Max turns reached."})
         yield StreamEvent(event=StreamEventType.DONE, data={})
+
+    async def execute(self, query: str) -> str:
+        """
+        Non-streaming wrapper for execute_stream.
+        Aggregates the final answer.
+        """
+        final_answer = ""
+        async for event in self.execute_stream(query):
+            if event.event == StreamEventType.TOKEN:
+                final_answer += event.data.get("text", "")
+            elif event.event == StreamEventType.DONE:
+                break
+        
+        return final_answer or "No answer generated."

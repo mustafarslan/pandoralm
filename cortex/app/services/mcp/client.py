@@ -85,5 +85,26 @@ class MCPClientService:
             logger.error(f"Error calling tool '{tool_name}' on '{server_name}': {e}")
             raise e
 
+    async def get_all_tools(self) -> Dict[str, List[Any]]:
+        """
+        Fetch tools from all configured MCP servers.
+        
+        Returns:
+            Dict[str, List[Tool]]: Map of server_name -> list of tools
+        """
+        from app.services.mcp_config import load_mcp_config
+        
+        config = load_mcp_config()
+        tools_map = {}
+        
+        for name, details in config.get("tools", {}).items():
+            url = details.get("url")
+            if url:
+                tools = await self.list_tools(name, url)
+                if tools:
+                    tools_map[name] = tools
+        
+        return tools_map
+
 def get_mcp_client() -> MCPClientService:
     return MCPClientService()
