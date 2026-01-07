@@ -23,6 +23,7 @@ from app.api.v1.user_layers import router as user_layers_router
 from app.api.v1.legacy import router as legacy_router
 from app.api.v1.workspace import router as workspace_router
 from app.api.v1.workspace_layers import router as workspace_layers_router
+from app.api.v1.audit import router as audit_router
 
 from app.api.v1.stream import router as stream_router
 
@@ -47,6 +48,12 @@ router.include_router(web_router, prefix="/web", tags=["Web Capture"])
 router.include_router(auth_router, tags=["Authentication & Layers"])
 router.include_router(admin_layers_router, tags=["Admin - Layers"])
 router.include_router(user_layers_router)
+# Audit & Governance
+router.include_router(audit_router, prefix="/audit", tags=["Audit & Governance"])
+
+# Distributed Agents (Phase 3)
+from app.api.v1.agents import router as agents_router
+router.include_router(agents_router, prefix="/agents", tags=["Distributed Agents"])
 
 from app.api.v1.meetings import router as meetings_router
 router.include_router(meetings_router, prefix="/meetings", tags=["Meeting Intelligence"])

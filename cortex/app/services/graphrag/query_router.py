@@ -401,22 +401,22 @@ class HybridQueryRouter:
         self,
         query: str,
     ) -> QueryContext:
-        """Execute deep research using MCP Agent."""
-        from app.services.agent.agent import ResearchAgent
+        """Execute deep research using Google Search Agent (LangGraph)."""
+        from app.agents.search import GoogleSearchAgent
         
         # Initialize agent
-        agent = ResearchAgent()
+        agent = GoogleSearchAgent()
         
         # Execute research
-        answer = await agent.execute(query)
+        answer = await agent.run(query)
         
         return QueryContext(
             mode=QueryMode.RESEARCH,
             content=answer,
-            sources=[], # Agent might provide sources in future
+            sources=[], # Agent sources could be extracted if we modify agent return type
             entities=[],
             communities=[],
-            confidence=0.9, # High confidence if agent succeeds
+            confidence=0.9,
         )
 
     

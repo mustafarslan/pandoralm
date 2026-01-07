@@ -108,6 +108,8 @@ PandoraLM features a **Tri-Panel Layout** for a cohesive Knowledge OS experience
 | **🛡️ RBAC Pre-filtering** | Security enforced at query time, not just UI |
 | **🔄 Blue/Green Migrations** | Zero-downtime schema updates via table swapping |
 | **🔑 JIT Permission Checks** | TOCTOU-safe access validation in workers |
+| **🛡️ PII Redaction Pipeline** | Automatic masking of sensitive data (emails, phone numbers, SSNs) using Microsoft Presidio before vectorization |
+| **🔍 Secret Scanning Pipeline** | Pre-ingestion detection of API keys/secrets using `detect-secrets` library |
 
 **Knowledge Layer Types:**
 
@@ -184,7 +186,7 @@ A massive-scale parallel processing engine capable of embedding **80+ documents/
 | Feature | Description |
 |---------|-------------|
 | **💻 Code Brain** | Tree-sitter AST parsing with breadcrumb context |
-| **📊 Code Graph Mapper** | Neo4j relationships: `CONTAINS`, `HAS_METHOD` with `layer_id` security |
+| **📊 Code Graph Mapper** | Neo4j relationships: `CONTAINS`, `HAS_METHOD`, `IMPORTS`, `INHERITS`, `CALLS` with `layer_id` security |
 | **🌐 Deep Research Agent** | Plan → Search → Scrape → Ingest → Synthesize loop |
 | **🎙️ Meeting Intelligence** | Streaming audio capture + GPU transcription (Whisper/Pyannote) |
 | **🛡️ ReBAC Double-Check** | TOCTOU-safe permission validation in async workers |
@@ -199,6 +201,7 @@ A massive-scale parallel processing engine capable of embedding **80+ documents/
 | **🤖 Agent Microservices** | Git, Search, Filesystem as independent K8s pods |
 | **🪪 Identity Passport** | User context propagated via `X-Pandora-Layer-ID` header |
 | **🧩 Agent Personas** | Role-based tool filtering (Developer, Researcher) |
+| **🔍 Deep Research Agent UI** | Frontend toggle in chat to explicitly activate the LangGraph-based research agent for web search and report generation |
 
 ### Kubernetes Infrastructure
 
@@ -230,6 +233,8 @@ A massive-scale parallel processing engine capable of embedding **80+ documents/
 | **🔗 Entity Resolution** | Cosine similarity duplicate detection with Admin merge suggestions |
 | **⚡ Prompt Cache** | Redis-backed SHA256 caching with configurable TTL (default 1hr) |
 | **🎯 Cohere Rerank** | Optional Cohere API reranking via Factory Pattern (`RERANKER_PROVIDER`) |
+| **📅 Scheduled Memory Consolidation** | Nightly Celery Beat task to summarize and compress user memories |
+| **📦 Graph Query Caching** | Redis-backed caching for Neo4j traversal queries with 5-minute TTL |
 
 **Verification Metrics:**
 
@@ -354,7 +359,8 @@ User Query → Semantic Router (50ms) → Cognitive Router → Execution → Res
 ### Prerequisites
 
 - Docker & Docker Compose v2+
-- 8GB+ RAM (16GB recommended for local LLMs)
+- **10GB+ RAM allocated to Docker** (16GB recommended for local LLMs)
+  - Swap: At least 2GB (prevents daemon freezes during shutdown)
 - (Optional) Ollama with `gemma3:1b` and `deepseek-r1:8b` for local inference
 
 ### 1. Clone the Repository
@@ -600,7 +606,26 @@ personas:
   researcher:
     description: "Specialized in deep web research"
     tools: ["search_*", "fetch_url", "scrape_url"]
+  researcher:
+    description: "Specialized in deep web research"
+    tools: ["search_*", "fetch_url", "scrape_url"]
+
+### Slack Integration (Phase 3)
+
+To enable bi-directional chat via Slack:
+
+1. **Create a Slack App** in your workspace.
+2. **Enable Event Subscriptions**:
+   - Request URL: `https://<your-cortex-domain>/api/v1/agents/slack/events`
+   - Subscribe to events: `message.channels`, `app_mention`
+3. **Set Environment Variables**:
+
+```env
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_SIGNING_SECRET=your-signing-secret
 ```
+
+This enables the **Slack Agent**, which listens for mentions/messages and replies via the Cortex cognitive router.
 
 ### MCP Bridge
 

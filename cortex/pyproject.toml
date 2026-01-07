@@ -61,6 +61,7 @@ tiktoken = "^0.7.0"
 
 # Auth
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+detect-secrets = "^1.4.0"
 GitPython = "^3.1.0"
 
 # Cognitive Router (Intent Classification)
@@ -94,6 +95,14 @@ numpy = "^1.26.0"
 # Optional: Cohere Rerank (Phase 5-2)
 cohere = {version = "^4.50", optional = true}
 
+# Agent Framework (Phase 3)
+langgraph = ">=0.1.0"
+slack_sdk = "^3.27.0"
+
+# PII Redaction (Phase 2)
+presidio-analyzer = "^2.2.0"
+presidio-anonymizer = "^2.2.0"
+spacy = "^3.7.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

@@ -19,6 +19,7 @@ class Entity:
     type: str
     description: str
     source_documents: List[str]
+    layer_id: str = "default"  # Access Control Layer
     properties: Dict[str, Any] = None
     
     def model_dump(self) -> dict:
@@ -30,7 +31,8 @@ class Entity:
             "type": self.type,
             "description": self.description,
             "source_documents": self.source_documents,
-            "properties_json": props_json,  # Serialized as string for Neo4j
+            "properties_json": props_json,
+            "layer_id": self.layer_id,
         }
 
 
@@ -43,6 +45,7 @@ class Relationship:
     type: str
     description: str
     weight: float = 1.0
+    layer_id: str = "default"
     
     def model_dump(self) -> dict:
         return {
@@ -52,6 +55,7 @@ class Relationship:
             "type": self.type,
             "description": self.description,
             "weight": self.weight,
+            "layer_id": self.layer_id,
         }
 
 
@@ -143,6 +147,10 @@ class Neo4jGraphStore:
     
     def upsert_entity(self, entity: Entity, workspace_id: str) -> None:
         """Insert or update an entity."""
+        # Invalidate Cache
+        from app.services.cache.graph_cache import get_graph_cache
+        get_graph_cache().invalidate(workspace_id)
+        
         props_json = json.dumps(entity.properties) if entity.properties else "{}"
         query = """
         MERGE (e:Entity {id: $id, workspace_id: $workspace_id})
@@ -151,7 +159,7 @@ class Neo4jGraphStore:
             e.description = $description,
             e.source_documents = $source_documents,
             e.properties_json = $properties_json,
-            e.layer_id = $workspace_id,  
+            e.layer_id = $layer_id,
             e.updated_at = datetime()
         """
         with self.driver.session() as session:
@@ -164,10 +172,15 @@ class Neo4jGraphStore:
                 description=entity.description,
                 source_documents=entity.source_documents,
                 properties_json=props_json,
+                layer_id=entity.layer_id,
             )
     
     def upsert_entities_batch(self, entities: List[Entity], workspace_id: str) -> None:
         """Batch insert/update entities."""
+        # Invalidate Cache
+        from app.services.cache.graph_cache import get_graph_cache
+        get_graph_cache().invalidate(workspace_id)
+        
         query = """
         UNWIND $entities AS ent
         MERGE (e:Entity {id: ent.id, workspace_id: $workspace_id})
@@ -176,7 +189,7 @@ class Neo4jGraphStore:
             e.description = ent.description,
             e.source_documents = ent.source_documents,
             e.properties_json = ent.properties_json,
-            e.layer_id = $workspace_id,
+            e.layer_id = ent.layer_id,
             e.updated_at = datetime()
         """
         with self.driver.session() as session:
@@ -203,6 +216,7 @@ class Neo4jGraphStore:
                     type=node["type"],
                     description=node["description"],
                     source_documents=node.get("source_documents", []),
+                    layer_id=node.get("layer_id", "default"),
                     properties=node.get("properties", {}),
                 )
         return None
@@ -256,6 +270,7 @@ class Neo4jGraphStore:
                     type=node["type"],
                     description=node["description"],
                     source_documents=node.get("source_documents", []),
+                    layer_id=node.get("layer_id", "default"),
                     properties=node.get("properties", {}),
                 ))
         return entities
@@ -266,6 +281,10 @@ class Neo4jGraphStore:
     
     def upsert_relationship(self, rel: Relationship, workspace_id: str) -> None:
         """Insert or update a relationship between entities."""
+        # Invalidate Cache
+        from app.services.cache.graph_cache import get_graph_cache
+        get_graph_cache().invalidate(workspace_id)
+        
         query = """
         MATCH (a:Entity {id: $source_id, workspace_id: $workspace_id})
         MATCH (b:Entity {id: $target_id, workspace_id: $workspace_id})
@@ -273,7 +292,7 @@ class Neo4jGraphStore:
         SET r.type = $rel_type,
             r.description = $description,
             r.weight = $weight,
-            r.layer_id = $workspace_id,
+            r.layer_id = $layer_id,
             r.updated_at = datetime()
         """
         with self.driver.session() as session:
@@ -286,10 +305,15 @@ class Neo4jGraphStore:
                 rel_type=rel.type,
                 description=rel.description,
                 weight=rel.weight,
+                layer_id=rel.layer_id,
             )
     
     def upsert_relationships_batch(self, relationships: List[Relationship], workspace_id: str) -> None:
         """Batch insert/update relationships."""
+        # Invalidate Cache
+        from app.services.cache.graph_cache import get_graph_cache
+        get_graph_cache().invalidate(workspace_id)
+        
         query = """
         UNWIND $relationships AS rel
         MATCH (a:Entity {id: rel.source_id, workspace_id: $workspace_id})
@@ -298,7 +322,7 @@ class Neo4jGraphStore:
         SET r.type = rel.type,
             r.description = rel.description,
             r.weight = rel.weight,
-            r.layer_id = $workspace_id,
+            r.layer_id = rel.layer_id,
             r.updated_at = datetime()
         """
         with self.driver.session() as session:
@@ -355,8 +379,9 @@ class Neo4jGraphStore:
                     source_id=record["source_id"],
                     target_id=record["target_id"],
                     type=rel["type"],
-                    description=rel["description"],
+                    description=rel.get("description", ""), # Handle missing description gracefully
                     weight=rel.get("weight", 1.0),
+                    layer_id=rel.get("layer_id", "default"),
                 ))
         return relationships
     
@@ -366,6 +391,10 @@ class Neo4jGraphStore:
     
     def upsert_community(self, community: Community, workspace_id: str) -> None:
         """Insert or update a community."""
+        # Invalidate Cache
+        from app.services.cache.graph_cache import get_graph_cache
+        get_graph_cache().invalidate(workspace_id)
+        
         query = """
         MERGE (c:Community {id: $id, workspace_id: $workspace_id})
         SET c.level = $level,
@@ -571,6 +600,28 @@ class Neo4jGraphStore:
         """
         Local search: Find entities and their immediate neighborhood.
         """
+        # 1. Try Cache
+        from app.services.cache.graph_cache import get_graph_cache
+        cache = get_graph_cache()
+        cache_params = {
+            "query_entities": sorted(query_entities),
+            "allowed_layers": sorted(allowed_layers) if allowed_layers else None,
+            "hops": hops,
+            "limit": limit
+        }
+        
+        cached_result = cache.get(workspace_id, "local_search", cache_params)
+        if cached_result:
+            # Reconstruct Entity objects from dicts if needed, or return dicts if caller handles it.
+            # The current implementation returns dict with 'entities' as list of Entity objects.
+            # We need to reconstruct them.
+            entities = [Entity(**e) for e in cached_result.get("entities", [])]
+            return {
+                "entities": entities,
+                "relationships": [], # TODO: Cache relationships too if we serialize them
+                "search_type": "local"
+            }
+
         # Security Filter
         layer_filter = ""
         if allowed_layers:
@@ -579,17 +630,30 @@ class Neo4jGraphStore:
              # Default to public/default if no context (or strict deny)
              layer_filter = "AND e.layer_id IN ['default', 'public']"
              
+        # ReBAC Enforcement: Filter both start node and related nodes
+        
+        # 1. Start Node Filter
+        start_node_filter = ""
+        if allowed_layers:
+             start_node_filter = "AND (e.layer_id IN $allowed_layers OR e.layer_id = 'public')"
+        else:
+             # Default: Only public/default
+             start_node_filter = "AND e.layer_id IN ['default', 'public']"
+             
+        # 2. Traversal Filter (in CALL subquery)
+        # Note: We duplicate logic for clarity.
+        
         cypher = f"""
         MATCH (e:Entity {{workspace_id: $workspace_id}})
         WHERE (e.name IN $query_entities OR e.id IN $query_entities)
-        {layer_filter}
+        {start_node_filter}
         CALL {{
             WITH e
-            MATCH path = (e)-[*1..$hops]-(related:Entity)
-            WHERE related.layer_id IN $allowed_layers OR related.layer_id IN ['default', 'public']
-            RETURN related, relationships(path) AS rels
+            MATCH path = (e)-[*1..{hops}]-(related:Entity)
+            WHERE (related.layer_id IN $allowed_layers OR related.layer_id = 'public' OR related.layer_id = 'default')
+              AND related.workspace_id = $workspace_id
+            RETURN collect(DISTINCT related) AS neighborhood, collect(relationships(path)) AS all_rels
         }}
-        WITH e, collect(DISTINCT related) AS neighborhood, collect(rels) AS all_rels
         RETURN e, neighborhood, all_rels
         LIMIT $limit
         """
@@ -616,6 +680,7 @@ class Neo4jGraphStore:
                     type=node["type"],
                     description=node["description"],
                     source_documents=node.get("source_documents", []),
+                    properties=node.get("properties", {}),
                 ))
                 
                 # Add neighborhood
@@ -626,13 +691,29 @@ class Neo4jGraphStore:
                         type=neighbor["type"],
                         description=neighbor["description"],
                         source_documents=neighbor.get("source_documents", []),
+                        layer_id=neighbor.get("layer_id", "default"),
+                        properties=neighbor.get("properties", {}),
                     ))
             
-            return {
-                "entities": entities,
+            # Remove duplicates
+            unique_entities = {e.id: e for e in entities}.values()
+            final_entities = list(unique_entities)
+            
+            result_data = {
+                "entities": final_entities,
                 "relationships": relationships,
                 "search_type": "local",
             }
+            
+            # Cache Result (Serialize objects to dicts)
+            cache_data = {
+                "entities": [e.model_dump() for e in final_entities],
+                "relationships": [],
+                "search_type": "local"
+            }
+            cache.set(workspace_id, "local_search", cache_params, cache_data)
+            
+            return result_data
     
     def global_search(
         self,
@@ -644,6 +725,24 @@ class Neo4jGraphStore:
         """
         Global search: Query community summaries for high-level themes.
         """
+        # 1. Try Cache
+        from app.services.cache.graph_cache import get_graph_cache
+        cache = get_graph_cache()
+        cache_params = {
+            "allowed_layers": sorted(allowed_layers) if allowed_layers else None,
+            "query_keywords": sorted(query_keywords) if query_keywords else None,
+            "top_communities": top_communities
+        }
+        
+        cached_result = cache.get(workspace_id, "global_search", cache_params)
+        if cached_result:
+             communities = [Community(**c) for c in cached_result.get("communities", [])]
+             return {
+                 "communities": communities,
+                 "search_type": "global",
+                 "context": cached_result.get("context", "")
+             }
+
         # Security: Communities aggregate entities. 
         # A community is visible if ANY of its entities are visible? 
         # Or should communities inherit layer?
@@ -681,11 +780,21 @@ class Neo4jGraphStore:
                     entity_ids=node.get("entity_ids", []),
                 ))
         
-        return {
+        result_data = {
             "communities": communities,
             "search_type": "global",
             "context": "\n\n".join([c.summary for c in communities]),
         }
+        
+        # Cache Result
+        cache_data = {
+            "communities": [c.model_dump() for c in communities],
+            "search_type": "global",
+            "context": result_data["context"]
+        }
+        cache.set(workspace_id, "global_search", cache_params, cache_data)
+        
+        return result_data
     
     # ========================================
     # Utility Methods
@@ -747,6 +856,10 @@ class Neo4jGraphStore:
     
     def clear_workspace(self, workspace_id: str) -> None:
         """Delete all graph data for a workspace."""
+        # Invalidate Cache
+        from app.services.cache.graph_cache import get_graph_cache
+        get_graph_cache().invalidate(workspace_id)
+        
         with self.driver.session() as session:
             # Delete relationships first
             session.run(

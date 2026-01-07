@@ -4,11 +4,12 @@ Hybrid RAG query routing (Vector + Graph)
 """
 from typing import List, Optional
 from enum import Enum
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel
 
 from app.services.graphrag import get_query_router, QueryMode
 from app.auth.keycloak import verifier
+from app.services.audit_service import audit_log_background
 
 router = APIRouter()
 
@@ -76,6 +77,7 @@ class QueryResponse(BaseModel):
 @router.post("/", response_model=QueryResponse)
 async def query(
     request: QueryRequest,
+    background_tasks: BackgroundTasks,
     token_payload: dict = Depends(verifier.verify_token)
 ) -> QueryResponse:
     """
@@ -123,6 +125,19 @@ async def query(
     }
     
     mode = mode_map[request.mode]
+
+    # Audit Log (Background Task)
+    background_tasks.add_task(
+        audit_log_background,
+        user_id=str(user_id) if user_id else "anonymous",
+        workspace_id=request.workspace_id,
+        action="query",
+        details={
+            "query": request.query,
+            "mode": request.mode,
+            "top_k": request.top_k
+        }
+    )
     
     try:
         result = await query_router.route_query(

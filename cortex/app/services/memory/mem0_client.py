@@ -99,13 +99,16 @@ class Mem0Client:
                 }
                 logger.info(f"Memory Embedder: OpenAI ({settings.MEMORY_EMBEDDER_MODEL})")
             
-            # Configure Mem0 with LanceDB backend
+            # Configure Mem0 with Qdrant backend (LanceDB not supported in this version)
+            # Use local on-disk Qdrant for persistence
+            qdrant_path = "/app/data/qdrant_memory"
+            
             config = {
                 "vector_store": {
-                    "provider": "lancedb",
+                    "provider": "qdrant",
                     "config": {
-                        "uri": settings.LANCEDB_PATH,
-                        "table_name": "memories"
+                        "path": qdrant_path,
+                        "collection_name": "memories"
                     }
                 },
                 "llm": llm_config,

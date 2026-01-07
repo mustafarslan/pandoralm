@@ -4,20 +4,22 @@ Inherits from SecureVectorChunk to ensure layer_id security.
 """
 from typing import Optional, List
 from pydantic import Field
+from dataclasses import dataclass
 from app.services.vector_store import VectorChunk
 
+@dataclass
 class CodeChunk(VectorChunk):
     """
     Represents a chunk of code (Class, Function, or Block).
     Inherits secure fields (layer_id, access_roles) from VectorChunk.
     """
-    node_type: str = Field(..., description="Type of node: class, function, method, block")
-    language: str = Field(..., description="Programming language (e.g., python, javascript)")
-    start_line: int = Field(..., description="Start line number (1-indexed)")
-    end_line: int = Field(..., description="End line number (1-indexed)")
-    file_path: str = Field(..., description="Relative path in the repository")
-    parent_id: Optional[str] = Field(None, description="ID of the parent node (e.g., Class ID for a Method)")
-    signature: Optional[str] = Field(None, description="Function/Method signature")
+    node_type: str = "block"
+    language: str = "text"
+    start_line: int = 0
+    end_line: int = 0
+    file_path: str = ""
+    parent_id: Optional[str] = None
+    signature: Optional[str] = None
 
     def to_dict(self) -> dict:
         """Serialize to dictionary for LanceDB."""

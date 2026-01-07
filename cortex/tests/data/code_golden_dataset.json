@@ -1,0 +1,54 @@
+[
+    {
+        "id": "1",
+        "query": "Where is the CodeParser class defined and what does it do?",
+        "expected_files": [
+            "app/services/code/parser.py"
+        ],
+        "expected_entities": [
+            "CodeParser"
+        ]
+    },
+    {
+        "id": "2",
+        "query": "How is memory summarization implemented?",
+        "expected_files": [
+            "app/services/memory/consolidation_service.py",
+            "app/workers/tasks/memory_consolidation.py"
+        ],
+        "expected_entities": [
+            "MemoryConsolidationService",
+            "scheduled_memory_summarization"
+        ]
+    },
+    {
+        "id": "3",
+        "query": "What is the schema for storing memory summaries in Postgres?",
+        "expected_files": [
+            "app/models/memory.py"
+        ],
+        "expected_entities": [
+            "MemorySummary"
+        ]
+    },
+    {
+        "id": "4",
+        "query": "Where is the Neo4j graph store implementation?",
+        "expected_files": [
+            "app/services/graphrag/neo4j_store.py"
+        ],
+        "expected_entities": [
+            "Neo4jGraphStore"
+        ]
+    },
+    {
+        "id": "5",
+        "query": "Show me the Redis cache implementation for graph queries",
+        "expected_files": [
+            "app/services/cache/graph_cache.py"
+        ],
+        "expected_entities": [
+            "GraphQueryCache"
+        ]
+    }
+]

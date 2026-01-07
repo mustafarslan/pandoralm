@@ -62,6 +62,7 @@ function apiOpsEndpoints(router) {
     router.use("/v1/evaluation", proxyHandler);
     router.use("/evaluation", proxyHandler); // Legacy route for Quality Gate
     router.use("/v1/system/models", proxyHandler);
+    router.use("/v1/audit", proxyHandler);
 }
 
 module.exports = { apiOpsEndpoints };

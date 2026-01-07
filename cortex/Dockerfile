@@ -28,6 +28,9 @@ COPY workers/ ./workers/
 # Install dependencies (without dev dependencies for production)
 RUN poetry install --without dev --no-interaction --no-ansi
 
+# Download Spacy model for PII Redaction
+RUN python -m spacy download en_core_web_lg
+
 # Create storage directories
 RUN mkdir -p /app/storage/lancedb /app/storage/graphrag
 

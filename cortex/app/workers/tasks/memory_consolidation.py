@@ -5,7 +5,7 @@ Celery task for asynchronous memory extraction and storage.
 Runs after chat responses to extract facts without blocking the response.
 """
 import logging
-from typing import Dict, List
+from typing import Dict, List, Any
 
 from app.workers.celery_app import celery_app
 from app.core.config import settings
@@ -100,4 +100,80 @@ def cleanup_old_memories(self, user_id: str, max_age_days: int = 90):
         
     except Exception as exc:
         logger.error(f"Memory cleanup failed for user {user_id}: {exc}")
+        return {"status": "error", "error": str(exc)}
+
+
+@celery_app.task(bind=True)
+def scheduled_memory_summarization(self, user_id: str, days: int = 1):
+    """
+    Periodic task to summarize user memories.
+    Can be scheduled via Celery Beat or triggered manually.
+    """
+    import asyncio
+    from app.services.memory.consolidation_service import get_consolidation_service
+    
+    logger.info(f"Starting memory summarization for user {user_id}")
+    
+    try:
+        service = get_consolidation_service()
+        # Run async service in sync Celery task
+        loop = asyncio.get_event_loop()
+        summary = loop.run_until_complete(service.summarize_memories_for_user(user_id, days))
+        
+        if summary:
+            logger.info(f"Generated summary for user {user_id}: {len(summary)} chars")
+            return {"status": "success", "summary_len": len(summary)}
+        else:
+            logger.info(f"No summary generated for user {user_id}")
+            return {"status": "skipped", "reason": "no_memories"}
+            
+    except Exception as exc:
+        logger.error(f"Summarization task failed for user {user_id}: {exc}")
+        # raise self.retry(exc=exc) # Optional retry
+        return {"status": "error", "error": str(exc)}
+
+
+@celery_app.task(bind=True, name="cron.trigger_memory_maintenance")
+def trigger_memory_maintenance(self) -> Dict[str, Any]:
+    """
+    Daily cron task to trigger memory maintenance for all active users.
+    
+    Fan-out pattern:
+    1. Find users active in the last 30 days.
+    2. Trigger summarization for each.
+    3. Trigger cleanup for each.
+    """
+    import asyncio
+    from app.services.audit_service import AuditService
+    from app.core.database import async_session_maker
+    
+    logger.info("Starting daily memory maintenance trigger")
+    
+    async def _get_users():
+        async with async_session_maker() as session:
+            svc = AuditService(session)
+            return await svc.get_active_users(days=30)
+            
+    try:
+        loop = asyncio.get_event_loop()
+        active_users = loop.run_until_complete(_get_users())
+        
+        triggered_count = 0
+        for user_id in active_users:
+            if not user_id or user_id == "anonymous":
+                continue
+                
+            # Trigger Summarization (Daily)
+            scheduled_memory_summarization.delay(user_id=user_id, days=1)
+            
+            # Trigger Cleanup (Daily check, but logic checks age)
+            cleanup_old_memories.delay(user_id=user_id, max_age_days=90)
+            
+            triggered_count += 1
+            
+        logger.info(f"Triggered memory maintenance for {triggered_count} users")
+        return {"status": "success", "triggered": triggered_count}
+        
+    except Exception as exc:
+        logger.error(f"Memory maintenance trigger failed: {exc}")
         return {"status": "error", "error": str(exc)}

@@ -55,6 +55,7 @@ celery_app = Celery(
         "app.workers.tasks.cron",
         "app.workers.tasks.scraper",
         "app.workers.tasks.audio",  # Phase 5.4: Meeting Intelligence
+        "app.workers.tasks.memory_consolidation", # Memory maintenance
     ],
 )
 
@@ -172,6 +173,12 @@ celery_app.conf.update(
         "purge-old-chat-messages-nightly": {
             "task": "cron.purge_old_chat_messages",
             "schedule": crontab(hour=4, minute=0),
+            "kwargs": {},
+        },
+        # Memory maintenance (5 AM UTC)
+        "trigger-memory-maintenance-daily": {
+            "task": "cron.trigger_memory_maintenance",
+            "schedule": crontab(hour=5, minute=0),
             "kwargs": {},
         },
     },

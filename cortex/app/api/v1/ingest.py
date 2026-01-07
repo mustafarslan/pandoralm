@@ -12,7 +12,7 @@ import logging
 from typing import Optional
 
 
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
 from pydantic import BaseModel, Field
 
 from app.models.document_status import IngestJobResponse, ProcessingStatus
@@ -20,6 +20,7 @@ from app.services.document_status_service import get_document_status_service
 from app.workers.tasks.indexing import vectorize_document
 from app.auth.keycloak import verifier
 from app.core.security import require_auth
+from app.services.audit_service import audit_log_background
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ async def process_document_async(
     workspace_id: str = Form("default"),
     target_layer_id: str = Form(...),
     trigger_graph_indexing: bool = Form(True),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     token_payload: dict = Depends(verifier.verify_token) # Extract User ID for JIT check
 ) -> IngestJobResponse:
 
@@ -115,6 +117,22 @@ async def process_document_async(
     
     # Update status with task ID
     status_service.update(document_id, vector_task_id=task.id)
+
+    # Audit Log (Background Task)
+    background_tasks.add_task(
+        audit_log_background,
+        user_id=str(user_id) if user_id else "anonymous",
+        workspace_id=workspace_id,
+        action="ingest_document",
+        resource_id=document_id,
+        resource_type="document",
+        layer_id=target_layer_id,
+        details={
+            "filename": filename,
+            "size": os.path.getsize(fullpath),
+            "vector_task_id": task.id
+        }
+    )
     
     return IngestJobResponse(
         status="accepted",

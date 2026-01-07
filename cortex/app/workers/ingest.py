@@ -15,6 +15,7 @@ from app.core.telemetry import trace_span
 from app.services.vector_store import get_vector_store
 from app.services.code.parser import get_code_parser
 from app.services.code.graph_mapper import get_code_graph_mapper
+from app.services.security.secret_scanner import get_secret_scanner
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,7 @@ def process_git_repo(
         parser = get_code_parser()
         vector_store = get_vector_store()
         graph_mapper = get_code_graph_mapper()
+        scanner = get_secret_scanner()
         
         all_chunks = []
         
@@ -72,6 +74,14 @@ def process_git_repo(
                         
                     # Generate a pseudo-doc ID for the file
                     doc_id = f"git::{repo_name}::{rel_path}"
+
+                    # Security Check: Scan for Secrets
+                    secrets = scanner.scan(content, filename=rel_path)
+                    if secrets:
+                        logger.warning(f"⚠️ Secrets detected in {rel_path}. Skipping indexing.")
+                        for s in secrets:
+                            logger.info(f"   [SECRET] {s['type']} at line {s['line_number']}")
+                        continue
                     
                     chunks = parser.parse_file(
                         content=content,

@@ -145,6 +145,12 @@ class Settings(BaseSettings):
     
     # Cross-Platform Compute Device ("auto", "cpu", "cuda", "mps")
     COMPUTE_DEVICE: str = "auto"
+    
+    # ===============================
+    # Phase 3: Slack Connector
+    # ===============================
+    SLACK_BOT_TOKEN: str = ""
+    SLACK_SIGNING_SECRET: str = ""
 
 
 @lru_cache

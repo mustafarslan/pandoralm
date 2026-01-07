@@ -37,6 +37,8 @@ export default function PromptInput({
   isStreaming,
   sendCommand,
   attachments = [],
+  chatMode,
+  setChatMode,
 }) {
   const { t } = useTranslation();
   const { isDisabled } = useIsDisabled();
@@ -270,6 +272,8 @@ export default function PromptInput({
           setShowing={setShowAgents}
           sendCommand={sendCommand}
           promptRef={textareaRef}
+          chatMode={chatMode}
+          setChatMode={setChatMode}
         />
         {/* Form - centered via mx-auto */}
         <form

@@ -16,9 +16,8 @@ export default function AvailableAgentsButton({ showing, setShowAgents }) {
       data-tooltip-content={t("chat_window.agents")}
       aria-label={t("chat_window.agents")}
       onClick={() => setShowAgents(!showing)}
-      className={`flex justify-center items-center cursor-pointer ${
-        showing ? "!opacity-100" : ""
-      }`}
+      className={`flex justify-center items-center cursor-pointer ${showing ? "!opacity-100" : ""
+        }`}
     >
       <At
         color="var(--theme-sidebar-footer-icon-fill)"
@@ -47,6 +46,8 @@ export function AvailableAgents({
   setShowing,
   sendCommand,
   promptRef,
+  chatMode,
+  setChatMode,
 }) {
   const formRef = useRef(null);
   const agentSessionActive = useIsAgentSessionActive();
@@ -115,12 +116,27 @@ export function AvailableAgents({
             </button>
             <button
               type="button"
-              disabled={true}
-              className="w-full rounded-xl flex flex-col justify-start group"
+              onClick={() => {
+                setChatMode(chatMode === "research" ? "auto" : "research");
+                setShowing(false);
+              }}
+              className={`w-full rounded-xl flex flex-col justify-start group px-2 py-2 hover:bg-theme-action-menu-item-hover ${chatMode === "research" ? "bg-theme-action-menu-item-hover border border-violet-500" : ""
+                }`}
             >
-              <div className="w-full flex-col text-center flex pointer-events-none">
-                <div className="text-theme-text-secondary text-xs italic">
-                  {t("chat_window.custom_agents_coming_soon")}
+              <div className="w-full flex-col text-left flex pointer-events-none">
+                <div className="text-theme-text-primary text-sm flex items-center gap-2">
+                  <b>{t("chat_window.google_search_agent", "Deep Research Agent")}</b>
+                  {chatMode === "research" && (
+                    <span className="text-xs bg-violet-500 text-white px-2 py-0.5 rounded-full">Active</span>
+                  )}
+                </div>
+                <div className="text-theme-text-secondary text-xs">
+                  {t("chat_window.google_search_agent_description", "Autonomous specialized agent for comprehensive web research and report generation.")}
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <AbilityTag text="google-search" />
+                  <AbilityTag text="report-generation" />
+                  <AbilityTag text="citation-handling" />
                 </div>
               </div>
             </button>

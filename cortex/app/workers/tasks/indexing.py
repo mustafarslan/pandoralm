@@ -129,6 +129,33 @@ def vectorize_document(
         
         status_service.update_vector_status(document_id, ProcessingStatus.PROCESSING, 0.2)
         
+        # ---------------------------------------------------------
+        # Step 1.5: PII Redaction (New)
+        # ---------------------------------------------------------
+        try:
+            from app.services.pii.detector import PIIDetector
+            from app.services.pii.redactor import PIIRedactor
+            
+            logger.info("🔍 Scanning for PII...")
+            detector = PIIDetector()
+            redactor = PIIRedactor()
+            
+            # Detect
+            pii_matches = detector.detect(text_content)
+            
+            if pii_matches:
+                logger.info(f"⚠️ Found and redacting {len(pii_matches)} PII instances")
+                # Redact
+                text_content = redactor.redact(text_content, pii_matches)
+                
+                self.update_state(state='PROGRESS', meta={
+                    'phase': 'pii_scrubbing',
+                    'pii_count': len(pii_matches),
+                    'progress': 0.25,
+                })
+        except Exception as e:
+            logger.warning(f"PII Redaction failed (proceeding with original): {e}")
+
         # Initialize Event Loop for Async Operations (Chunking -> Embedding -> Storing)
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

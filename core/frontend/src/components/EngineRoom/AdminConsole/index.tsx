@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Database, Network, ChevronDown, ChevronUp, Activity } from 'lucide-react';
+import { Database, Network, ChevronDown, ChevronUp, Activity, Shield } from 'lucide-react';
 import VisualInspector from './VectorOps/VisualInspector';
 import ChunkEditor from './VectorOps/ChunkEditor';
 import DocumentManager from './VectorOps/DocumentManager';
 import EntityManager from './GraphOps/EntityManager';
 import RelationshipGraph from './GraphOps/RelationshipGraph';
 import CommunitySummaries from './GraphOps/CommunitySummaries';
+import AuditLogUI from './Governance/AuditLogUI';
 
 // Mock components until implemented
 // const VisualInspector = () => <div className="p-4">Visual Inspector Component</div>;
@@ -19,7 +20,7 @@ import CommunitySummaries from './GraphOps/CommunitySummaries';
 import SystemHealth from './Overview/SystemHealth';
 import QuickActions from './Overview/QuickActions';
 
-type TabId = 'overview' | 'vector' | 'graph';
+type TabId = 'overview' | 'vector' | 'graph' | 'governance';
 type SubTab = 'inspect' | 'edit' | 'context' | 'entities' | 'relationships' | 'communities';
 
 interface Tab {
@@ -32,6 +33,7 @@ const TABS: Tab[] = [
     { id: 'overview', label: 'Overview', icon: <Activity size={18} /> },
     { id: 'vector', label: 'Vector Operations', icon: <Database size={18} /> },
     { id: 'graph', label: 'Graph Operations', icon: <Network size={18} /> },
+    { id: 'governance', label: 'Governance & Audit', icon: <Shield size={18} /> },
 ];
 
 export const AdminConsoleConfig = () => {
@@ -105,6 +107,10 @@ export const AdminConsoleConfig = () => {
                                     {activeSubTab === 'edit' && <ChunkEditor />}
                                     {activeSubTab === 'context' && <DocumentManager />}
                                 </div>
+                            </div>
+                        ) : activeTab === 'governance' ? (
+                            <div className="bg-[var(--ink-page)] rounded-lg border border-[var(--ink-border)] min-h-[400px]">
+                                <AuditLogUI />
                             </div>
                         ) : (
                             <div className="space-y-6">
