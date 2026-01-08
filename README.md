@@ -26,7 +26,7 @@
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 
 - [Why PandoraLM?](#why-pandoralm)
 - [Key Features](#key-features)
@@ -43,7 +43,7 @@
 
 ---
 
-## 💡 Why PandoraLM?
+## Why PandoraLM?
 
 Traditional RAG (Retrieval Augmented Generation) systems rely solely on **vector similarity search**. This works well for simple factual questions ("What is X?") but fails on complex queries requiring relationship understanding ("How does policy A conflict with policy B?").
 
@@ -57,20 +57,20 @@ The system uses a **Cognitive Router** (inspired by Kahneman's *Thinking, Fast a
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 ### Core Intelligence
 
 | Feature | Description |
 |---------|-------------|
-| **🧠 Cognitive Router** | LLM-based query classifier that routes between Vector, Graph, and Agentic modes |
-| **🔍 Hybrid RAG** | Combines LanceDB (vectors) and Neo4j (knowledge graph) for comprehensive retrieval |
-| **🚀 Cross-Encoder Reranking** | RRF fusion + `ms-marco-MiniLM` for high-precision results |
-| **⚡ Semantic Router** | Sub-50ms local routing using `all-MiniLM-L6-v2` embeddings |
-| **🏭 The Engine Room** | Centralized "Mission Control" for infrastructure, governance, and pipelines |
-| **🎨 Glass Box UI** | Real-time "Thought Accordion" showing reasoning steps (Routing, Retrieval, Execution) |
-| **🧠 KnowledgeRail** | ReBAC-aware navigation bar mapping Keycloak roles to Knowledge Layers |
-| **👁️ Generative UI** | Vercel AI SDK streams triggers for Meeting Player, Graph Viz, and Code Blocks |
+| **Cognitive Router** | LLM-based query classifier that routes between Vector, Graph, and Agentic modes |
+| **Hybrid RAG** | Combines LanceDB (vectors) and Neo4j (knowledge graph) for comprehensive retrieval |
+| **Cross-Encoder Reranking** | RRF fusion + `ms-marco-MiniLM` for high-precision results |
+| **Semantic Router** | Sub-50ms local routing using `all-MiniLM-L6-v2` embeddings |
+| **The Engine Room** | Centralized "Mission Control" for infrastructure, governance, and pipelines |
+| **Glass Box UI** | Real-time "Thought Accordion" showing reasoning steps (Routing, Retrieval, Execution) |
+| **KnowledgeRail** | ReBAC-aware navigation bar mapping Keycloak roles to Knowledge Layers |
+| **Generative UI** | Vercel AI SDK streams triggers for Meeting Player, Graph Viz, and Code Blocks |
 
 ### Knowledge OS UI/UX
 
@@ -86,30 +86,30 @@ PandoraLM features a **Tri-Panel Layout** for a cohesive Knowledge OS experience
 
 | Feature | Description |
 |---------|-------------|
-| **🧠 KnowledgeRail** | ReBAC-aware navigation showing Knowledge Layers (System, Org, Team, User) |
-| **✨ Reasoning Pulse** | Violet/Emerald glow animation indicating active processing tier |
-| **📦 Compact Mode** | Collapse chevron to show only ReBAC badges (S, O, T, U) |
-| **🔐 Layer Selection** | Click to set `activeLayerId`, auto-injected as `X-Pandora-Layer-ID` header |
+| **KnowledgeRail** | ReBAC-aware navigation showing Knowledge Layers (System, Org, Team, User) |
+| **Reasoning Pulse** | Violet/Emerald glow animation indicating active processing tier |
+| **Compact Mode** | Collapse chevron to show only ReBAC badges (S, O, T, U) |
+| **Layer Selection** | Click to set `activeLayerId`, auto-injected as `X-Pandora-Layer-ID` header |
 
 **Additional UI Components:**
 
 | Component | Description |
 |-----------|-------------|
-| **🎯 TriPaneLayout** | Three-column layout with Dock, KnowledgeRail, and IntelligenceSidePanel |
-| **📊 ThoughtAccordion** | Collapsible reasoning trace with tier badges (Fast Lane / Deep Reasoning) |
-| **📈 MetricGauge** | RAG quality visualizer with pass/fail thresholds and DeepEval reasoning |
-| **🔄 cortexApi.ts** | Centralized fetch wrapper with automatic `X-Pandora-Layer-ID` injection |
+| **TriPaneLayout** | Three-column layout with Dock, KnowledgeRail, and IntelligenceSidePanel |
+| **ThoughtAccordion** | Collapsible reasoning trace with tier badges (Fast Lane / Deep Reasoning) |
+| **MetricGauge** | RAG quality visualizer with pass/fail thresholds and DeepEval reasoning |
+| **cortexApi.ts** | Centralized fetch wrapper with automatic `X-Pandora-Layer-ID` injection |
 
 ### Enterprise Security
 
 | Feature | Description |
 |---------|-------------|
-| **🔐 Knowledge Layers** | Data partitioned by `layer_id` (System, Org, Team, User) |
-| **🛡️ RBAC Pre-filtering** | Security enforced at query time, not just UI |
-| **🔄 Blue/Green Migrations** | Zero-downtime schema updates via table swapping |
-| **🔑 JIT Permission Checks** | TOCTOU-safe access validation in workers |
-| **🛡️ PII Redaction Pipeline** | Automatic masking of sensitive data (emails, phone numbers, SSNs) using Microsoft Presidio before vectorization |
-| **🔍 Secret Scanning Pipeline** | Pre-ingestion detection of API keys/secrets using `detect-secrets` library |
+| **Knowledge Layers** | Data partitioned by `layer_id` (System, Org, Team, User) |
+| **RBAC Pre-filtering** | Security enforced at query time, not just UI |
+| **Blue/Green Migrations** | Zero-downtime schema updates via table swapping |
+| **JIT Permission Checks** | TOCTOU-safe access validation in workers |
+| **PII Redaction Pipeline** | Automatic masking of sensitive data (emails, phone numbers, SSNs) using Microsoft Presidio before vectorization |
+| **Secret Scanning Pipeline** | Pre-ingestion detection of API keys/secrets using `detect-secrets` library |
 
 **Knowledge Layer Types:**
 
@@ -128,11 +128,11 @@ PandoraLM integrates with **Keycloak** for enterprise-grade authentication via O
 
 | Feature | Description |
 |---------|-------------|
-| **🔑 OIDC SSO** | OpenID Connect authentication via `GET /api/v1/auth/sso/oidc` |
-| **🛡️ SAML SSO** | Enterprise SAML authentication via `GET /api/v1/auth/sso/saml` |
-| **👤 3-State Login Flow** | Unauthenticated → Login → Welcome/Create Workspace → Dashboard |
-| **🎨 Ink Wash UI** | Modern login form with SSO buttons and "Forgot Password" |
-| **🔄 JWT Role Mapping** | Keycloak `realm_access.roles` mapped to Knowledge Layers |
+| **OIDC SSO** | OpenID Connect authentication via `GET /api/v1/auth/sso/oidc` |
+| **SAML SSO** | Enterprise SAML authentication via `GET /api/v1/auth/sso/saml` |
+| **3-State Login Flow** | Unauthenticated → Login → Welcome/Create Workspace → Dashboard |
+| **Ink Wash UI** | Modern login form with SSO buttons and "Forgot Password" |
+| **JWT Role Mapping** | Keycloak `realm_access.roles` mapped to Knowledge Layers |
 
 **SSO Configuration:**
 
@@ -167,12 +167,12 @@ A massive-scale parallel processing engine capable of embedding **80+ documents/
 
 | Feature | Description |
 |---------|-------------|
-| **🚀 Parallel Chunking** | `ProcessPoolExecutor` strategy offloads CPU-bound tokenization to separate processes |
-| **⚡ Async Batch Embedding** | `asyncio.gather()` processes requests concurrently (1000 chunks vs 1) |
-| **🧠 Zero-Copy Insert** | PyArrow Table construction bypasses serialization overhead for LanceDB |
+| **Parallel Chunking** | `ProcessPoolExecutor` strategy offloads CPU-bound tokenization to separate processes |
+| **Async Batch Embedding** | `asyncio.gather()` processes requests concurrently (1000 chunks vs 1) |
+| **Zero-Copy Insert** | PyArrow Table construction bypasses serialization overhead for LanceDB |
 | **🏎️ uvloop Integration** | 2-4x faster I/O event loop for high-throughput API handling |
-| **🚅 Optimized Workers** | Split deployments: `celery-fast` (Latency) & `celery-embedding` (Throughput) |
-| **💡 ONNX Runtime** | Hardware-accelerated local inference for `sentence-transformers` |
+| **Optimized Workers** | Split deployments: `celery-fast` (Latency) & `celery-embedding` (Throughput) |
+| **ONNX Runtime** | Hardware-accelerated local inference for `sentence-transformers` |
 
 **Throughput Benchmarks:**
 
@@ -185,56 +185,56 @@ A massive-scale parallel processing engine capable of embedding **80+ documents/
 
 | Feature | Description |
 |---------|-------------|
-| **💻 Code Brain** | Tree-sitter AST parsing with breadcrumb context |
-| **📊 Code Graph Mapper** | Neo4j relationships: `CONTAINS`, `HAS_METHOD`, `IMPORTS`, `INHERITS`, `CALLS` with `layer_id` security |
-| **🌐 Deep Research Agent** | Plan → Search → Scrape → Ingest → Synthesize loop |
-| **🎙️ Meeting Intelligence** | Streaming audio capture + GPU transcription (Whisper/Pyannote) |
-| **🛡️ ReBAC Double-Check** | TOCTOU-safe permission validation in async workers |
-| **📡 Vercel AI SDK Protocol** | Generative UI triggers for `meeting_ref`, `graph_viz`, `citation` |
-| **⚡ Linear Scan Alignment** | O(N) speaker-text merge algorithm for diarization |
+| **Code Brain** | Tree-sitter AST parsing with breadcrumb context |
+| **Code Graph Mapper** | Neo4j relationships: `CONTAINS`, `HAS_METHOD`, `IMPORTS`, `INHERITS`, `CALLS` with `layer_id` security |
+| **Deep Research Agent** | Plan → Search → Scrape → Ingest → Synthesize loop |
+| **Meeting Intelligence** | Streaming audio capture + GPU transcription (Whisper/Pyannote) |
+| **ReBAC Double-Check** | TOCTOU-safe permission validation in async workers |
+| **Vercel AI SDK Protocol** | Generative UI triggers for `meeting_ref`, `graph_viz`, `citation` |
+| **Linear Scan Alignment** | O(N) speaker-text merge algorithm for diarization |
 
 ### Distributed Agents
 
 | Feature | Description |
 |---------|-------------|
-| **🔌 MCP Bridge** | Stdio-to-SSE adapter for networked tool execution |
-| **🤖 Agent Microservices** | Git, Search, Filesystem as independent K8s pods |
-| **🪪 Identity Passport** | User context propagated via `X-Pandora-Layer-ID` header |
-| **🧩 Agent Personas** | Role-based tool filtering (Developer, Researcher) |
-| **🔍 Deep Research Agent UI** | Frontend toggle in chat to explicitly activate the LangGraph-based research agent for web search and report generation |
+| **MCP Bridge** | Stdio-to-SSE adapter for networked tool execution |
+| **Agent Microservices** | Git, Search, Filesystem as independent K8s pods |
+| **Identity Passport** | User context propagated via `X-Pandora-Layer-ID` header |
+| **Agent Personas** | Role-based tool filtering (Developer, Researcher) |
+| **Deep Research Agent UI** | Frontend toggle in chat to explicitly activate the LangGraph-based research agent for web search and report generation |
 
 ### Kubernetes Infrastructure
 
 | Feature | Description |
 |---------|-------------|
-| **📦 Helm Charts** | Production-ready `charts/pandora-os/` with all manifests |
-| **📈 KEDA Autoscaling** | Scale workers based on Redis queue depth, not just CPU |
-| **🔍 OpenTelemetry Tracing** | Distributed tracing across Cortex → Vector DB → LLM |
-| **📊 Grafana Dashboards** | Pre-configured RAG latency and storage metrics |
+| **Helm Charts** | Production-ready `charts/pandora-os/` with all manifests |
+| **KEDA Autoscaling** | Scale workers based on Redis queue depth, not just CPU |
+| **OpenTelemetry Tracing** | Distributed tracing across Cortex → Vector DB → LLM |
+| **Grafana Dashboards** | Pre-configured RAG latency and storage metrics |
 
 ### DevOps & Observability
 
 | Feature | Description |
 |---------|-------------|
-| **🏭 The Engine Room** | Unified dashboard (`/engine-room`) combining Infrastructure, Pipeline, and Governance monitoring |
-| **🔮 Glass Box Tracing** | ReBAC-aware spans with `app.layer_id` and `app.user.id` attributes |
-| **📊 Worker HUD** | Real-time monitoring of GPU scaling (KEDA), Queue Depth, and System Latency |
-| **🔍 Ingestion Pipeline** | Visual "Assembly Line" tracking document flow (Extract → Vector → Graph) |
-| **🛡️ NetworkPolicy** | Strict ingress controls for agent services |
-| **🧪 Quality Gate HUD** | Real-time dashboard for Faithfulness, Relevancy, and Hallucination metrics |
-| **🥇 Gold Standard Queue** | UI for manual verification of high-quality responses for the Golden Dataset |
+| **The Engine Room** | Unified dashboard (`/engine-room`) combining Infrastructure, Pipeline, and Governance monitoring |
+| **Glass Box Tracing** | ReBAC-aware spans with `app.layer_id` and `app.user.id` attributes |
+| **Worker HUD** | Real-time monitoring of GPU scaling (KEDA), Queue Depth, and System Latency |
+| **Ingestion Pipeline** | Visual "Assembly Line" tracking document flow (Extract → Vector → Graph) |
+| **NetworkPolicy** | Strict ingress controls for agent services |
+| **Quality Gate HUD** | Real-time dashboard for Faithfulness, Relevancy, and Hallucination metrics |
+| **Gold Standard Queue** | UI for manual verification of high-quality responses for the Golden Dataset |
 
 ### Cognitive Core
 
 | Feature | Description |
 |---------|-------------|
-| **🧠 Persistent Memory** | Mem0 SDK integration for cross-session user preference storage |
-| **🌍 Global Search** | Community summary embeddings for thematic reasoning across documents |
-| **🔗 Entity Resolution** | Cosine similarity duplicate detection with Admin merge suggestions |
-| **⚡ Prompt Cache** | Redis-backed SHA256 caching with configurable TTL (default 1hr) |
-| **🎯 Cohere Rerank** | Optional Cohere API reranking via Factory Pattern (`RERANKER_PROVIDER`) |
-| **📅 Scheduled Memory Consolidation** | Nightly Celery Beat task to summarize and compress user memories |
-| **📦 Graph Query Caching** | Redis-backed caching for Neo4j traversal queries with 5-minute TTL |
+| **Persistent Memory** | Mem0 SDK integration for cross-session user preference storage |
+| **Global Search** | Community summary embeddings for thematic reasoning across documents |
+| **Entity Resolution** | Cosine similarity duplicate detection with Admin merge suggestions |
+| **Prompt Cache** | Redis-backed SHA256 caching with configurable TTL (default 1hr) |
+| **Cohere Rerank** | Optional Cohere API reranking via Factory Pattern (`RERANKER_PROVIDER`) |
+| **Scheduled Memory Consolidation** | Nightly Celery Beat task to summarize and compress user memories |
+| **Graph Query Caching** | Redis-backed caching for Neo4j traversal queries with 5-minute TTL |
 
 **Verification Metrics:**
 
@@ -244,7 +244,7 @@ A massive-scale parallel processing engine capable of embedding **80+ documents/
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### System Overview
 
@@ -354,7 +354,7 @@ User Query → Semantic Router (50ms) → Cognitive Router → Execution → Res
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -437,7 +437,7 @@ docker compose -f docker-compose.integrations.yml up -d
 
 ---
 
-## ☸️ Kubernetes Deployment
+## Kubernetes Deployment
 
 PandoraLM includes production-ready Helm charts for enterprise deployment.
 
@@ -520,7 +520,7 @@ This deploys:
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### Performance Tuning (New)
 
@@ -606,11 +606,9 @@ personas:
   researcher:
     description: "Specialized in deep web research"
     tools: ["search_*", "fetch_url", "scrape_url"]
-  researcher:
-    description: "Specialized in deep web research"
-    tools: ["search_*", "fetch_url", "scrape_url"]
+```
 
-### Slack Integration (Phase 3)
+### Slack Integration
 
 To enable bi-directional chat via Slack:
 
@@ -642,7 +640,7 @@ docker run -e MCP_COMMAND="npx -y @modelcontextprotocol/server-git" \
 
 ---
 
-## 📡 API Reference
+## API Reference
 
 ### Base URL
 
@@ -698,7 +696,7 @@ data: {}
 
 ---
 
-## 🧠 Architectural Decisions
+## Architectural Decisions
 
 ### Why Tiered Inference?
 
@@ -816,7 +814,7 @@ StreamProtocol.meeting_ref("meeting_123", 45.5)
 
 ---
 
-## 🛡️ Admin Console
+## Admin Console
 
 PandoraLM includes a unified Admin Console for managing the "Hybrid Brain" of the system.
 
@@ -857,7 +855,7 @@ Upload → PENDING → VECTOR_PROCESSING → VECTOR_READY → GRAPH_QUEUED → G
 
 ---
 
-## 🔐 Enterprise Security & Governance
+## Enterprise Security & Governance
 
 PandoraLM implements a **Database-First ReBAC** (Relationship-Based Access Control) system for multi-tenant data isolation.
 
@@ -978,7 +976,7 @@ docker compose restart pandora-cortex
 
 ---
 
-## 🔮 Glass Box Observability
+## Glass Box Observability
 
 PandoraLM implements a "Glass Box" observability strategy—complete visibility into the AI reasoning process for debugging and compliance.
 
@@ -1028,7 +1026,7 @@ make eval-local
 
 ---
 
-## 🧪 Evaluation & Quality
+## Evaluation & Quality
 
 PandoraLM includes a CI-ready evaluation harness using **DeepEval**.
 
@@ -1053,7 +1051,7 @@ This command:
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 pandoralm/
@@ -1092,7 +1090,7 @@ pandoralm/
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a PR.
 
@@ -1104,13 +1102,13 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm) - Core UI foundation
 - [Microsoft GraphRAG](https://github.com/microsoft/graphrag) - Graph indexing inspiration
@@ -1121,7 +1119,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 🚧 Known Issues & Technical Debt
+## Known Issues & Technical Debt
 
 ### E2E Testing Limitations
 
