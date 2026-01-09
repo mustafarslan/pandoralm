@@ -10,6 +10,7 @@ from app.services.vector_store import get_vector_store
 from app.services.graphrag.neo4j_store import get_neo4j_store
 from app.services.search.reranker import get_reranker_service
 from app.services.router import IntentType
+from app.services.graphrag.entity_extractor import get_entity_extractor
 
 logger = logging.getLogger(__name__)
 
@@ -94,25 +95,91 @@ class SearchPipeline:
         return expanded_results
 
     async def _balanced_search(self, query: str, workspace_id: str, allowed_layers: List[str], limit: int, graph_weight: float):
-        """Standard Hybrid Search."""
-        # 1. Vector
-        vector_res = self.vector_store.search(
-            query,
-            workspace_id=workspace_id,
-            allowed_layers=allowed_layers
-        )
-        vector_dicts = [r.chunk.to_dict() for r in vector_res]
+        """
+        Standard Hybrid Search (Vector + GraphRAG).
+        
+        Executes in parallel:
+        1. Vector Search (Dense Retrieval)
+        2. Graph Search (Entity Extraction -> Local Search)
+        
+        Returns:
+            RRF Fused results.
+        """
+        import asyncio
+        
+        # Define tasks for parallel execution
+        
+        async def run_vector_search():
+            try:
+                vec_res = self.vector_store.search(
+                    query,
+                    workspace_id=workspace_id,
+                    allowed_layers=allowed_layers,
+                    limit=limit * 2  # Fetch more for fusion
+                )
+                return [r.chunk.to_dict() for r in vec_res]
+            except Exception as e:
+                logger.error(f"Vector search failed: {e}")
+                return []
 
-        # 2. Graph (Local Search)
-        # Extract entities from query (simple heuristic or use LLM)
-        # For efficiency, we skip LLM extraction here and rely on Keyword match if possible,
-        # or skip graph search if no entities found.
-        # MVP: Skip strict GraphRAG local search step here to avoid circular dep on LLM,
-        # assume Vector Store covers text. Real system would call entity_extractor here.
-        graph_res = [] # self.graph_store.local_search(...)
+        async def run_graph_search():
+            try:
+                # A. Extract Entities (LLM)
+                # Use a very fast model or cache for this to stay real-time
+                extractor = get_entity_extractor()
+                entities = await extractor.extract_entities(query, chunk_id="query", model=None)
+                
+                if not entities:
+                    return []
+                
+                entity_names = [e.name for e in entities]
+                
+                # B. Local Graph Search
+                # Finds context from 2-hop neighborhood of extracted entities
+                graph_data = self.graph_store.local_search(
+                    query_entities=entity_names,
+                    workspace_id=workspace_id,
+                    allowed_layers=allowed_layers,
+                    hops=2,
+                    limit=limit * 2
+                )
+                
+                # Convert Entities/Relationships to flat result format
+                # For RRF, we need standard result dicts.
+                # We prioritize Entities found.
+                graph_results = []
+                for entity in graph_data.get("entities", []):
+                    # Convert to dict if strictly typed
+                    item = entity.model_dump() if hasattr(entity, "model_dump") else entity.to_dict() 
+                    # Normalize ID for fusion matches (assuming vector store uses same Chunk IDs??)
+                    # Note: Vector Store returns CHUNKS, Graph returns ENTITIES.
+                    # Fusion is tricky if IDs don't match.
+                    # Strategy: Return Graph Entities as distinct results to provide "Concepts".
+                    item["source"] = "graph"
+                    graph_results.append(item)
+                    
+                return graph_results
+            except Exception as e:
+                logger.error(f"Graph search failed: {e}")
+                return []
 
-        # 3. Fuse
-        fused = self.reranker.rrf_fuse(vector_dicts, graph_res, k=60)
+        # Execute Parallel
+        try:
+            vector_results, graph_results = await asyncio.gather(
+                run_vector_search(),
+                run_graph_search()
+            )
+        except Exception as e:
+            logger.error(f"Parallel search execution error: {e}")
+            # Fallback to serial or just vector if critical failure
+            vector_results = []
+            graph_results = []
+
+        # 3. Fuse (RRF)
+        # Note: We fuse mixed types (Chunks vs Entities). 
+        # The UI/Renderer must handle "Entity" type results.
+        fused = self.reranker.rrf_fuse(vector_results, graph_results, k=60)
+        
         return fused
 
 # Singleton

@@ -279,7 +279,7 @@ User Query → Semantic Router (50ms) → Cognitive Router → Execution → Res
                    └─ general_chat       → Full LLM routing
                                                │
                                                ├─ FACTUAL    → Vector Search (LanceDB)     → ~100ms
-                                               ├─ THEMATIC   → Graph Search (Neo4j)        → ~1-5s
+                                               ├─ THEMATIC   → Balanced (Vector + Graph)   → ~1-2s
                                                ├─ RESEARCH   → MCP Agent + Tools           → ~5-60s
                                                └─ CODE_GEN   → Vector (Code Chunks)        → ~100ms
 
