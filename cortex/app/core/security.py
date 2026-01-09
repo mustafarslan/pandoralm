@@ -28,23 +28,23 @@ class UserContext:
     realm_access: Dict[str, Any]
     resource_access: Dict[str, Any]
     raw_token: str
-    
+
     def has_role(self, role: str) -> bool:
         """Check if user has a specific realm role."""
         return role in self.roles
-    
+
     def has_any_role(self, roles: List[str]) -> bool:
         """Check if user has any of the specified roles."""
         return any(r in self.roles for r in roles)
-    
+
     def has_all_roles(self, roles: List[str]) -> bool:
         """Check if user has all of the specified roles."""
         return all(r in self.roles for r in roles)
-    
+
     def is_admin(self) -> bool:
         """Check if user is an admin."""
         return self.has_role("admin")
-    
+
     def is_vector_ops(self) -> bool:
         """Check if user has vector operations permission."""
         return self.has_role("vector-ops") or self.is_admin()
@@ -53,10 +53,10 @@ class UserContext:
 class KeycloakJWKS:
     """
     Fetches and caches JWKS (JSON Web Key Set) from Keycloak.
-    
+
     JWKS contains the public keys used to verify JWT signatures.
     """
-    
+
     def __init__(
         self,
         keycloak_url: str = None,
@@ -68,25 +68,25 @@ class KeycloakJWKS:
         self.cache_ttl = cache_ttl
         self._jwks_cache: Optional[Dict[str, Any]] = None
         self._cache_time: float = 0
-    
+
     @property
     def jwks_uri(self) -> str:
         """Get the JWKS endpoint URL."""
         return f"{self.keycloak_url}/realms/{self.realm}/protocol/openid-connect/certs"
-    
+
     @property
     def issuer(self) -> str:
         """Get the expected token issuer."""
         return f"{self.keycloak_url}/realms/{self.realm}"
-    
+
     async def get_jwks(self) -> Dict[str, Any]:
         """Fetch JWKS from Keycloak with caching."""
         now = time.time()
-        
+
         # Return cached if valid
         if self._jwks_cache and (now - self._cache_time) < self.cache_ttl:
             return self._jwks_cache
-        
+
         # Fetch fresh JWKS
         try:
             async with httpx.AsyncClient() as client:
@@ -103,37 +103,37 @@ class KeycloakJWKS:
                 status_code=503,
                 detail=f"Failed to fetch JWKS from Keycloak: {e}"
             )
-    
+
     async def get_signing_key(self, kid: str) -> Optional[Dict[str, Any]]:
         """Get a specific signing key by key ID."""
         jwks = await self.get_jwks()
-        
+
         for key in jwks.get("keys", []):
             if key.get("kid") == kid:
                 return key
-        
+
         # Key not found, try refreshing cache
         self._jwks_cache = None
         jwks = await self.get_jwks()
-        
+
         for key in jwks.get("keys", []):
             if key.get("kid") == kid:
                 return key
-        
+
         return None
 
 
 class JWTValidator:
     """
     Validates Keycloak JWT tokens.
-    
+
     Verifies:
     - Token signature using JWKS
     - Token expiration
     - Token issuer
     - Token audience (optional)
     """
-    
+
     def __init__(
         self,
         jwks: KeycloakJWKS = None,
@@ -143,30 +143,30 @@ class JWTValidator:
         self.jwks = jwks or KeycloakJWKS()
         self.audience = audience or settings.KEYCLOAK_CLIENT_ID
         self.verify_aud = verify_aud
-    
+
     async def validate_token(self, token: str) -> Dict[str, Any]:
         """
         Validate a JWT token and return its claims.
-        
+
         Raises HTTPException on validation failure.
         """
         try:
             # Decode header to get key ID
             unverified_header = jwt.get_unverified_header(token)
             kid = unverified_header.get("kid")
-            
+
             if not kid:
                 raise HTTPException(status_code=401, detail="Token missing key ID")
-            
+
             # Get signing key
             signing_key = await self.jwks.get_signing_key(kid)
-            
+
             if not signing_key:
                 raise HTTPException(status_code=401, detail="Signing key not found")
-            
+
             # Convert JWK to PEM for verification
             public_key = jwk.construct(signing_key)
-            
+
             # Verify and decode token
             options = {
                 "verify_signature": True,
@@ -174,7 +174,7 @@ class JWTValidator:
                 "verify_iat": True,
                 "verify_aud": self.verify_aud,
             }
-            
+
             claims = jwt.decode(
                 token,
                 public_key,
@@ -183,9 +183,9 @@ class JWTValidator:
                 issuer=self.jwks.issuer,
                 options=options,
             )
-            
+
             return claims
-            
+
         except JWTError as e:
             raise HTTPException(
                 status_code=401,
@@ -225,7 +225,7 @@ async def get_current_user(
 ) -> Optional[UserContext]:
     """
     FastAPI dependency to get the current authenticated user.
-    
+
     Returns None if no token provided (for optional auth).
     Raises HTTPException if token is invalid.
     """
@@ -243,20 +243,20 @@ async def get_current_user(
             resource_access={},
             raw_token="dev-token",
         )
-    
+
     if not credentials:
         return None
-    
+
     validator = get_validator()
     claims = await validator.validate_token(credentials.credentials)
-    
+
     # Extract roles from realm_access
     realm_access = claims.get("realm_access", {})
     roles = realm_access.get("roles", [])
-    
+
     # Extract groups
     groups = claims.get("groups", [])
-    
+
     return UserContext(
         sub=claims.get("sub", ""),
         email=claims.get("email", ""),
@@ -275,7 +275,7 @@ async def require_auth(
 ) -> UserContext:
     """
     FastAPI dependency that requires authentication.
-    
+
     Raises 401 if no valid token provided.
     """
     if not user:
@@ -289,7 +289,7 @@ async def require_auth(
 def require_roles(*required_roles: str):
     """
     Create a dependency that requires specific roles.
-    
+
     Usage:
         @router.get("/admin", dependencies=[Depends(require_roles("admin"))])
     """
@@ -302,7 +302,7 @@ def require_roles(*required_roles: str):
                 detail=f"Required roles: {', '.join(required_roles)}"
             )
         return user
-    
+
     return check_roles
 
 

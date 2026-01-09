@@ -19,7 +19,7 @@ from app.core.middleware import AuthMiddleware, get_user_from_request
 __all__ = [
     # Config
     "settings",
-    
+
     # Security
     "UserContext",
     "JWTValidator",
@@ -29,11 +29,11 @@ __all__ = [
     "require_roles",
     "require_admin",
     "require_vector_ops",
-    
+
     # RBAC
     "Permission",
     "check_permission",
-    
+
     # Middleware
     "AuthMiddleware",
     "get_user_from_request",

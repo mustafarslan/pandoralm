@@ -17,7 +17,7 @@ class MCPManager:
     Loads configuration, performs discovery, and aggregates tools.
     """
     _instance = None
-    
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(MCPManager, cls).__new__(cls)
@@ -30,14 +30,14 @@ class MCPManager:
     def _load_config() -> Dict[str, Any]:
         """Load configuration from mcp_config.json or agents.yaml (fallback)."""
         import json
-        
+
         # 1. Rule-Compliant JSON Config
         json_path = os.getenv("MCP_CONFIG_PATH", "cortex/mcp_config.json")
         if os.path.exists(json_path):
              with open(json_path, "r") as f:
                 logger.info(f"Loading MCP config from {json_path}")
                 return json.load(f)
-        
+
         # 2. Legacy YAML Config (Fallback)
         if not os.path.exists(AGENTS_CONFIG_PATH):
             # Fallback or empty if not found
@@ -46,10 +46,10 @@ class MCPManager:
             if os.path.exists(local_path):
                  with open(local_path, "r") as f:
                     return yaml.safe_load(f)
-            
+
             logger.warning(f"Agents config not found at {AGENTS_CONFIG_PATH} or mcp_config.json")
             return {"tools": {}, "personas": {}}
-            
+
         with open(AGENTS_CONFIG_PATH, "r") as f:
             return yaml.safe_load(f)
 
@@ -59,32 +59,32 @@ class MCPManager:
         This should be called on startup or periodically.
         """
         tools_config = self._config.get("tools", {})
-        
+
         for server_name, server_conf in tools_config.items():
             url = server_conf.get("url")
             if not url:
                 continue
-                
+
             logger.info(f"Discovering tools from {server_name} at {url}...")
-            
+
             # Fetch tools via Client
             tools = await self.client.list_tools(server_name, url)
-            
+
             # Register them
             for tool in tools:
                 # We assume tool names are unique globalwide OR we namespace them
                 # For now, let's namespace them if collision risk, or just store metadata
                 # The rule said "git_*" matching, so likely tools are named "git_commit" etc.
-                
+
                 # Check formatting of tool object (it's Pydantic model from mcp SDK)
                 t_name = tool.name
-                
+
                 self._tool_registry[t_name] = {
                     "server": server_name,
                     "url": url,
                     "tool_obj": tool
                 }
-        
+
         logger.info(f"Discovery complete. Registered {len(self._tool_registry)} tools.")
 
     def get_tools_for_persona(self, persona_name: str) -> List[Any]:
@@ -93,18 +93,18 @@ class MCPManager:
         """
         personas = self._config.get("personas", {})
         persona_def = personas.get(persona_name)
-        
+
         if not persona_def:
             # Default to all tools or specific fail-safe?
             # Creating a "general" persona logic might be good.
             return []
-            
+
         allowed_patterns = persona_def.get("tools", [])
-        
+
         # Filter registry
         selected_tools = []
         import re
-        
+
         for name, meta in self._tool_registry.items():
             # Check matches
             for pattern in allowed_patterns:
@@ -113,7 +113,7 @@ class MCPManager:
                 if re.match(f"^{regex_pat}$", name):
                     selected_tools.append(meta["tool_obj"])
                     break
-        
+
         # Convert to OpenAI format
         return convert_all_tools(selected_tools)
 

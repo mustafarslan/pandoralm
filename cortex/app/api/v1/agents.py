@@ -25,9 +25,9 @@ async def run_search_agent(
     try:
         agent = GoogleSearchAgent()
         answer = await agent.run(request.query)
-        
+
         return AgentSearchResponse(answer=answer)
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent failed: {str(e)}")
 
@@ -51,27 +51,27 @@ async def slack_events(request: Request, background_tasks: BackgroundTasks):
         body_bytes = await request.body()
         body_str = body_bytes.decode("utf-8")
         json_data = await request.json()
-        
+
         # 1. URL Verification (Handshake)
         if json_data.get("type") == "url_verification":
             return {"challenge": json_data.get("challenge")}
-            
+
         # 2. Verify Signature
         timestamp = request.headers.get("X-Slack-Request-Timestamp", "")
         signature = request.headers.get("X-Slack-Signature", "")
-        
+
         agent = SlackAgent()
-        
+
         if not await agent.verify_signature(body_str, timestamp, signature):
             # If verification fails, return 401
             raise HTTPException(status_code=401, detail="Invalid Slack signature")
-            
+
         # 3. Handle Event
         await agent.handle_event(json_data, background_tasks)
-        
+
         # Immediate 200 OK for Slack
         return {"status": "ok"}
-        
+
     except HTTPException:
         raise
     except Exception as e:

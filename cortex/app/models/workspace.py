@@ -11,7 +11,7 @@ class Workspace(Base):
     """
     __tablename__ = "workspaces"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True) 
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     slug: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
     vector_tag: Mapped[str] = mapped_column(String, nullable=True)

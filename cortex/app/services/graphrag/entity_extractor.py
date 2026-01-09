@@ -19,7 +19,7 @@ class ExtractedEntity:
     source_chunk_id: str
     confidence: float = 1.0
     properties: Dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict:
         return {
             "name": self.name,
@@ -40,7 +40,7 @@ class ExtractedRelationship:
     description: str
     source_chunk_id: str
     weight: float = 1.0
-    
+
     def to_dict(self) -> dict:
         return {
             "source_entity": self.source_entity,
@@ -86,7 +86,7 @@ Text:
 
 For each relationship, provide:
 - source: The name of the source entity
-- target: The name of the target entity  
+- target: The name of the target entity
 - type: The relationship type (RELATES_TO, PART_OF, REGULATES, CONFLICTS_WITH, DEPENDS_ON, CREATED_BY, LOCATED_IN, etc.)
 - description: Brief description of the relationship
 
@@ -101,15 +101,15 @@ Only output valid JSON, no other text."""
 class EntityExtractor:
     """
     Extracts entities and relationships from text using LLM.
-    
+
     Uses Ollama's OpenAI-compatible API (via LLM_SOLVER_MODEL) to identify:
     - Named entities (people, orgs, concepts, etc.)
     - Relationships between entities
     """
-    
+
     def __init__(self):
         self._client = None
-    
+
     @property
     def client(self):
         """Lazy initialization of OpenAI-compatible client (pointing to Ollama)."""
@@ -127,7 +127,7 @@ class EntityExtractor:
             except ImportError:
                 raise ImportError("openai package required for entity extraction")
         return self._client
-    
+
     async def extract_entities(
         self,
         text: str,
@@ -137,13 +137,13 @@ class EntityExtractor:
         """Extract entities from a text chunk."""
         # Use dedicated GraphRAG model (faster, better at JSON) instead of reasoning model
         model = model or settings.LLM_GRAPHRAG_MODEL
-        
+
         prompt = ENTITY_EXTRACTION_PROMPT.format(text=text[:4000])  # Limit text length
-        
+
         try:
             import asyncio
             loop = asyncio.get_event_loop()
-            
+
             response = await loop.run_in_executor(
                 None,
                 lambda: self.client.chat.completions.create(
@@ -153,12 +153,12 @@ class EntityExtractor:
                     max_tokens=2000,
                 )
             )
-            
+
             content = response.choices[0].message.content.strip()
-            
+
             # Parse JSON response
             entities_data = self._parse_json_response(content)
-            
+
             entities = []
             for ent in entities_data:
                 entities.append(ExtractedEntity(
@@ -167,13 +167,13 @@ class EntityExtractor:
                     description=ent.get("description", ""),
                     source_chunk_id=chunk_id,
                 ))
-            
+
             return entities
-            
+
         except Exception as e:
             print(f"Entity extraction failed: {e}")
             return []
-    
+
     async def extract_relationships(
         self,
         text: str,
@@ -184,19 +184,19 @@ class EntityExtractor:
         """Extract relationships between entities."""
         if len(entities) < 2:
             return []
-        
+
         model = model or settings.LLM_GRAPHRAG_MODEL
-        
+
         entity_list = "\n".join([f"- {e.name} ({e.type})" for e in entities])
         prompt = RELATIONSHIP_EXTRACTION_PROMPT.format(
             entities=entity_list,
             text=text[:4000],
         )
-        
+
         try:
             import asyncio
             loop = asyncio.get_event_loop()
-            
+
             response = await loop.run_in_executor(
                 None,
                 lambda: self.client.chat.completions.create(
@@ -206,20 +206,20 @@ class EntityExtractor:
                     max_tokens=2000,
                 )
             )
-            
+
             content = response.choices[0].message.content.strip()
-            
+
             # Parse JSON response
             rels_data = self._parse_json_response(content)
-            
+
             # Create entity name set for validation
             entity_names = {e.name.lower() for e in entities}
-            
+
             relationships = []
             for rel in rels_data:
                 source = rel.get("source", "")
                 target = rel.get("target", "")
-                
+
                 # Validate entities exist
                 if source.lower() in entity_names and target.lower() in entity_names:
                     relationships.append(ExtractedRelationship(
@@ -229,23 +229,23 @@ class EntityExtractor:
                         description=rel.get("description", ""),
                         source_chunk_id=chunk_id,
                     ))
-            
+
             return relationships
-            
+
         except Exception as e:
             print(f"Relationship extraction failed: {e}")
             return []
-    
+
     def _parse_json_response(self, content: str) -> List[dict]:
         """Parse JSON from LLM response."""
         # Try to find JSON array in response
         content = content.strip()
-        
+
         # Remove markdown code blocks if present
         if content.startswith("```"):
             lines = content.split("\n")
             content = "\n".join(lines[1:-1])
-        
+
         try:
             return json.loads(content)
         except json.JSONDecodeError:

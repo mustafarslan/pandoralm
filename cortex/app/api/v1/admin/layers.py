@@ -1,6 +1,5 @@
 """
 Admin Layer Management API
-Phase 5-3: Enterprise Security & Governance
 
 Protected endpoints requiring super_admin role for layer CRUD operations.
 """
@@ -38,13 +37,13 @@ async def require_super_admin(
 ) -> dict:
     """
     Dependency: Requires 'admin' realm role.
-    
+
     Raises:
         HTTPException: 403 if user lacks admin role
     """
     realm_access = payload.get("realm_access", {})
     roles = realm_access.get("roles", [])
-    
+
     if "admin" not in roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -69,7 +68,7 @@ async def create_layer(
 ) -> LayerResponse:
     """
     Create a new Knowledge Layer.
-    
+
     Requires super_admin role.
     """
     try:
@@ -98,12 +97,12 @@ async def list_layers(
 ) -> List[dict]:
     """
     List all Knowledge Layers.
-    
+
     Optionally includes vector count per layer from LanceDB.
     Requires super_admin role.
     """
     layers = await layer_manager.list_layers(db)
-    
+
     layer_stats = {}
     if include_vector_counts:
         try:
@@ -111,19 +110,19 @@ async def list_layers(
             layer_stats = vector_store.get_layer_distribution()
         except Exception:
             pass
-    
+
     result = []
     for layer in layers:
         layer_dict = layer.to_dict()
         layer_dict["permissions"] = [p.to_dict() for p in layer.permissions]
-        
+
         # Optional: Aggregate vector counts
         if include_vector_counts:
             # Match UUID string to stats key
             layer_dict["vector_count"] = layer_stats.get(str(layer.id), 0)
-        
+
         result.append(layer_dict)
-    
+
     return result
 
 
@@ -138,17 +137,17 @@ async def get_layer(
 ) -> dict:
     """
     Get a specific layer by ID.
-    
+
     Requires super_admin role.
     """
     layer = await layer_manager.get_layer(layer_id, db)
-    
+
     if not layer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Layer {layer_id} not found"
         )
-    
+
     layer_dict = layer.to_dict()
     layer_dict["permissions"] = [p.to_dict() for p in layer.permissions]
     return layer_dict
@@ -171,13 +170,13 @@ async def add_permission(
 ) -> PermissionResponse:
     """
     Add a permission to a layer.
-    
+
     Maps a Keycloak role pattern to layer access.
-    
+
     Role pattern examples:
     - "group:engineering" - exact match
     - "group:*" - wildcard (matches group:anything)
-    
+
     Requires super_admin role.
     """
     # Verify layer exists
@@ -187,14 +186,14 @@ async def add_permission(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Layer {layer_id} not found"
         )
-    
+
     perm = await layer_manager.assign_permission(
         layer_id=layer_id,
         role=data.role_pattern,
         level=data.access_level,
         db=db
     )
-    
+
     return PermissionResponse.model_validate(perm)
 
 
@@ -210,11 +209,11 @@ async def revoke_permission(
 ) -> None:
     """
     Revoke a permission from a layer.
-    
+
     Requires super_admin role.
     """
     revoked = await layer_manager.revoke_permission(perm_id, db)
-    
+
     if not revoked:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -300,7 +299,7 @@ async def update_user_quota(
     """
     layer = await layer_manager.get_user_private_layer(user_id, db)
     if not layer:
-        # Auto-create if not exists? Or 404? 
+        # Auto-create if not exists? Or 404?
         # Typically admin wants to set quota, so maybe auto-create or error.
         # Given "User Lifecycle", it should exist on creation/login.
         # I'll return 404 to be safe.
@@ -308,7 +307,7 @@ async def update_user_quota(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Private layer for user {user_id} not found"
         )
-    
+
     # We call update_layer_quota with the found ID
     updated = await layer_manager.update_layer_quota(UUID(layer.id), data, db)
     return LayerResponse.model_validate(updated)

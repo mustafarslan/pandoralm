@@ -13,7 +13,7 @@ class CodeGraphMapper:
     """
     Handles mapping of CodeChunks to Neo4j graph nodes and relationships.
     """
-    
+
     def __init__(self, neo4j_store: Neo4jGraphStore):
         self.store = neo4j_store
 
@@ -46,7 +46,7 @@ class CodeGraphMapper:
             properties={"path": chunk.file_path}
         )
         self.store.upsert_entity(file_entity, workspace_id)
-        
+
         # 2. Create Code Node (Class/Function)
         code_node_id = f"CODE::{workspace_id}::{chunk.id}"
         code_entity = Entity(
@@ -59,7 +59,7 @@ class CodeGraphMapper:
             properties=chunk.metadata
         )
         self.store.upsert_entity(code_entity, workspace_id)
-        
+
         # 3. Link File -> Code Node
         rel_contains = Relationship(
             id=f"REL::{uuid.uuid4()}",
@@ -70,11 +70,11 @@ class CodeGraphMapper:
             layer_id=chunk.layer_id
         )
         self.store.upsert_relationship(rel_contains, workspace_id)
-        
+
         # 4. Link Parent -> Child (if applicable)
         if chunk.parent_id:
             parent_node_id = f"CODE::{workspace_id}::{chunk.parent_id}"
-            
+
             rel_parent = Relationship(
                 id=f"REL::{uuid.uuid4()}",
                 source_id=parent_node_id,
@@ -89,7 +89,7 @@ class CodeGraphMapper:
         if chunk.metadata.get("imports"):
             for import_path in chunk.metadata["imports"]:
                 import_node_id = f"MODULE::{workspace_id}::{import_path}"
-                
+
                 module_entity = Entity(
                     id=import_node_id,
                     name=import_path,
@@ -100,7 +100,7 @@ class CodeGraphMapper:
                     properties={}
                 )
                 self.store.upsert_entity(module_entity, workspace_id)
-                
+
                 rel_imports = Relationship(
                     id=f"REL::{uuid.uuid4()}",
                     source_id=file_node_id,
@@ -115,7 +115,7 @@ class CodeGraphMapper:
         if chunk.node_type == "class" and chunk.metadata.get("bases"):
             for base_class in chunk.metadata["bases"]:
                 base_node_id = f"CLASS_REF::{workspace_id}::{base_class}"
-                
+
                 base_entity = Entity(
                     id=base_node_id,
                     name=base_class,
@@ -126,7 +126,7 @@ class CodeGraphMapper:
                     properties={"is_reference": True}
                 )
                 self.store.upsert_entity(base_entity, workspace_id)
-                
+
                 rel_inherits = Relationship(
                     id=f"REL::{uuid.uuid4()}",
                     source_id=code_node_id,
@@ -141,7 +141,7 @@ class CodeGraphMapper:
         if chunk.metadata.get("calls"):
             for called_fn in chunk.metadata["calls"]:
                 target_node_id = f"FUNCTION_REF::{workspace_id}::{called_fn}"
-                
+
                 func_ref_entity = Entity(
                     id=target_node_id,
                     name=called_fn,
@@ -152,7 +152,7 @@ class CodeGraphMapper:
                     properties={"is_reference": True}
                 )
                 self.store.upsert_entity(func_ref_entity, workspace_id)
-                
+
                 rel_calls = Relationship(
                     id=f"REL::{uuid.uuid4()}",
                     source_id=code_node_id,

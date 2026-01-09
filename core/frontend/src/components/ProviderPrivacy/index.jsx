@@ -4,7 +4,7 @@ import { PROVIDER_PRIVACY_MAP } from "./constants";
 import { ArrowSquareOut } from "@phosphor-icons/react";
 import PandoraLMIcon from "@/media/logo/pandoralm-icon.svg";
 import { Link } from "react-router-dom";
-import { titleCase, sentenceCase } from "text-case";
+import { titleCase, sentenceCase } from "@/utils/string";
 
 function defaultProvider(providerString) {
   return {

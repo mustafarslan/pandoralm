@@ -21,24 +21,24 @@ class SearchPipeline:
     3. Fusion (RRF)
     4. Reranking (Cross-Encoder)
     """
-    
+
     def __init__(self):
         self.vector_store = get_vector_store()
         self.graph_store = get_neo4j_store()
         self.reranker = get_reranker_service()
-        
+
     @trace_span("search.pipeline.run")
     async def run(
-        self, 
-        query: str, 
-        intent: IntentType, 
+        self,
+        query: str,
+        intent: IntentType,
         workspace_id: str,
         allowed_layers: List[str],
         limit: int = 20
     ) -> List[Dict[str, Any]]:
-        
+
         results = []
-        
+
         # 1. Routing & Retrieval
         if intent == IntentType.CODE_GENERATION or self._is_code_query(query):
             # CODE PATH
@@ -49,10 +49,10 @@ class SearchPipeline:
         else:
             # FACTUAL / DEFAULT PATH
             results = await self._balanced_search(query, workspace_id, allowed_layers, limit, graph_weight=0.3)
-            
+
         # 2. Reranking
         final_results = self.reranker.rerank(query, results, top_k=limit)
-        
+
         return final_results
 
     def _is_code_query(self, query: str) -> bool:
@@ -70,47 +70,47 @@ class SearchPipeline:
         # Note: In real world, we'd use a sparse index (BM25) for code identifiers.
         # Here we rely on dense embeddings + metadata filtering.
         kb_results = self.vector_store.search(
-            query, 
-            workspace_id=workspace_id, 
+            query,
+            workspace_id=workspace_id,
             allowed_layers=allowed_layers,
             limit=limit * 2
         )
-        
+
         # B. Context Expansion (Graph)
         expanded_results = []
         for res in kb_results:
             chunk = res.chunk
             item = chunk.to_dict()
             item["score"] = res.score
-            
+
             # If it's a function/method, try to find parent context
             if getattr(chunk, "node_type", "") in ["function", "method"] and getattr(chunk, "parent_id", None):
                 parent_context = self.graph_store.get_entity_context(chunk.parent_id, workspace_id)
                 if parent_context:
                     item["context"] = parent_context
-                    
+
             expanded_results.append(item)
-            
+
         return expanded_results
 
     async def _balanced_search(self, query: str, workspace_id: str, allowed_layers: List[str], limit: int, graph_weight: float):
         """Standard Hybrid Search."""
         # 1. Vector
         vector_res = self.vector_store.search(
-            query, 
-            workspace_id=workspace_id, 
+            query,
+            workspace_id=workspace_id,
             allowed_layers=allowed_layers
         )
         vector_dicts = [r.chunk.to_dict() for r in vector_res]
-        
+
         # 2. Graph (Local Search)
         # Extract entities from query (simple heuristic or use LLM)
         # For efficiency, we skip LLM extraction here and rely on Keyword match if possible,
-        # or skip graph search if no entities found. 
-        # MVP: Skip strict GraphRAG local search step here to avoid circular dep on LLM, 
+        # or skip graph search if no entities found.
+        # MVP: Skip strict GraphRAG local search step here to avoid circular dep on LLM,
         # assume Vector Store covers text. Real system would call entity_extractor here.
         graph_res = [] # self.graph_store.local_search(...)
-        
+
         # 3. Fuse
         fused = self.reranker.rrf_fuse(vector_dicts, graph_res, k=60)
         return fused

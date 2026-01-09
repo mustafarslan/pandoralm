@@ -89,10 +89,10 @@ async def get_system_stats() -> SystemStatsResponse:
     """Get system-wide statistics. Admin only."""
     vector_store = get_vector_store()
     graph_store = get_graph_store()
-    
+
     vector_stats = vector_store.get_total_stats()
     collections = vector_store.list_collections()
-    
+
     return SystemStatsResponse(
         vector_stats=vector_stats,
         graph_connected=graph_store.verify_connectivity(),
@@ -107,22 +107,22 @@ async def get_system_stats() -> SystemStatsResponse:
 async def clear_workspace_data(workspace_id: str) -> dict:
     """
     Clear all data for a workspace. Admin only.
-    
+
     WARNING: This permanently deletes vectors and graph data.
     """
     vector_store = get_vector_store()
     graph_store = get_graph_store()
-    
+
     # Delete vectors
     vector_deleted = vector_store.delete_collection(workspace_id)
-    
+
     # Delete graph
     try:
         graph_store.clear_workspace(workspace_id)
         graph_deleted = True
     except Exception:
         graph_deleted = False
-    
+
     return {
         "workspace_id": workspace_id,
         "vectors_deleted": vector_deleted,
@@ -154,12 +154,12 @@ async def list_all_collections() -> dict:
 async def delete_collection(workspace_id: str) -> dict:
     """Delete a vector collection. Vector-ops only."""
     vector_store = get_vector_store()
-    
+
     success = vector_store.delete_collection(workspace_id)
-    
+
     if not success:
         raise HTTPException(status_code=404, detail="Collection not found")
-    
+
     return {"deleted": workspace_id, "status": "deleted"}
 
 
@@ -170,14 +170,14 @@ async def delete_collection(workspace_id: str) -> dict:
 async def reindex_all_workspaces() -> dict:
     """
     Trigger reindexing for all workspaces. Vector-ops only.
-    
+
     This queues background jobs for each workspace.
     """
     from app.workers.tasks.indexing import reindex_vectors
-    
+
     vector_store = get_vector_store()
     collections = vector_store.list_collections()
-    
+
     jobs = []
     for coll in collections:
         try:
@@ -191,7 +191,7 @@ async def reindex_all_workspaces() -> dict:
                 "workspace_id": coll["workspace_id"],
                 "error": str(e),
             })
-    
+
     return {
         "status": "queued",
         "jobs": jobs,
@@ -210,11 +210,11 @@ async def get_system_preferences() -> dict:
     Maps environment variables to the format expected by AnythingLLM frontend.
     """
     from app.core.config import settings
-    
+
     return {
         "settings": {
-            "MultiUserMode": True, 
-            "AuthToken": settings.OPENAI_API_KEY, 
+            "MultiUserMode": True,
+            "AuthToken": settings.OPENAI_API_KEY,
             # Keycloak / Identity
             "KeycloakRealm": settings.KEYCLOAK_REALM,
             "KeycloakURL": settings.KEYCLOAK_PUBLIC_URL,

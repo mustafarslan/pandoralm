@@ -55,17 +55,17 @@ class ModelInfo(BaseModel):
 async def estimate_vram(request: VRAMEstimateRequest) -> VRAMEstimateResponse:
     """
     Estimate GPU VRAM requirements for running a model.
-    
+
     Provide either model_name (for known models) or parameters_billions.
     """
     calculator = get_vram_calculator()
-    
+
     # Parse precision
     try:
         precision = Precision(request.precision.lower())
     except ValueError:
         precision = Precision.FP16
-    
+
     try:
         estimate = calculator.estimate_vram(
             model_name=request.model_name,
@@ -74,7 +74,7 @@ async def estimate_vram(request: VRAMEstimateRequest) -> VRAMEstimateResponse:
             context_length=request.context_length,
             batch_size=request.batch_size,
         )
-        
+
         return VRAMEstimateResponse(
             model_name=estimate.model_name,
             precision=estimate.precision.value,
@@ -98,13 +98,13 @@ async def compare_precisions(
 ) -> List[VRAMEstimateResponse]:
     """Compare VRAM requirements across all precision levels."""
     calculator = get_vram_calculator()
-    
+
     estimates = calculator.compare_precisions(
         model_name=model_name,
         parameters_billions=parameters_billions,
         context_length=context_length,
     )
-    
+
     return [
         VRAMEstimateResponse(
             model_name=e.model_name,
@@ -125,7 +125,7 @@ async def list_known_models() -> List[ModelInfo]:
     """List all known model specifications."""
     calculator = get_vram_calculator()
     models = calculator.list_known_models()
-    
+
     return [
         ModelInfo(
             id=m["id"],
@@ -169,9 +169,9 @@ async def list_available_models(provider: Optional[str] = None) -> List[str]:
     """
     import httpx
     from app.core.config import settings
-    
+
     target_provider = provider or settings.LLM_PROVIDER
-    
+
     if target_provider == "ollama":
         urls_to_try = [
             f"{settings.LLM_ROUTER_API_BASE}/api/tags",
@@ -197,7 +197,7 @@ async def list_available_models(provider: Optional[str] = None) -> List[str]:
             except Exception as e:
                 print(f"[WARN] Failed to connect to {url}: {e}")
                 continue
-        
+
         print("[ERROR] All Ollama connection attempts failed.")
         return []
 

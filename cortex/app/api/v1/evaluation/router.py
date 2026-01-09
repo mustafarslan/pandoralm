@@ -40,7 +40,7 @@ async def get_quality_gate_status():
     Get the latest RAG Quality metrics from DeepEval.
     (Mocked for Phase 5 MVP until CI pipeline is connected)
     """
-    
+
     # Mock Data based on "real-world" scenarios
     return QualityGateStatus(
         status="PASS",

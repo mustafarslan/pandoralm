@@ -53,7 +53,7 @@ class ClassificationResult:
     latency_ms: float
     model_used: str
     provider: str = "unknown"
-    
+
     def to_dict(self) -> dict:
         return {
             "intent": self.intent.value,
@@ -68,7 +68,7 @@ class ClassificationResult:
 class RouterClassification(BaseModel):
     """
     Minimal structured output for Router classification (optimized for 1B models).
-    
+
     Note: No 'reasoning' field - 1B models often hallucinate or break JSON
     when asked to explain themselves. We only need the label and confidence.
     """
@@ -128,7 +128,7 @@ Intent: THEMATIC
 Reasoning: Requires understanding connections between different business areas
 
 Query: "Find and summarize recent news about AI regulations"
-Intent: RESEARCH  
+Intent: RESEARCH
 Reasoning: Requires external web search and synthesis
 """
 
@@ -138,13 +138,13 @@ Your task is to classify the user's query into one of four intent types:
 
 1. **FACTUAL**: Simple fact retrieval. The answer exists in a single document chunk.
    - "What is X?", "When did Y happen?", "Who is Z?"
-   
+
 2. **THEMATIC**: Requires understanding relationships or themes across multiple documents.
    - "How does X relate to Y?", "What are the themes?", "Compare A and B"
-   
+
 3. **RESEARCH**: Requires external data, web search, or multi-step investigation.
    - "Research X", "Find latest news about Y", "search arXiv for Z", "find papers on A"
-   
+
 4. **CODE_GENERATION**: User wants code output.
    - "Write code for X", "Create a function that Y", "Generate script to Z"
 
@@ -170,7 +170,7 @@ Schema: {"intent": "factual"|"thematic"|"research"|"code_generation", "confidenc
 
 Rules:
 - factual: "What is X?", simple fact questions
-- thematic: "How does X relate to Y?", cross-document analysis  
+- thematic: "How does X relate to Y?", cross-document analysis
 - research: "Research X", "search arXiv", "find papers", external data
 - code_generation: "Write code for X"
 
@@ -196,24 +196,24 @@ Respond with JSON only:
 class QueryIntentClassifier:
     """
     LLM-based query intent classifier (Tiered Inference - Router Layer).
-    
+
     This is the ROUTER component of the tiered inference architecture.
     It uses a fast, lightweight model (1B parameters) for classification.
-    
+
     Supports multiple providers:
     - OpenAI: Uses instructor for structured output (gpt-4o-mini ~100ms)
     - Ollama: Uses local 1B models for fast classification (gemma3:1b ~300ms)
-    
+
     Configuration via environment variables:
     - LLM_PROVIDER: "openai" or "ollama"
     - LLM_ROUTER_MODEL: Fast model for classification (e.g., "gemma3:1b")
     - LLM_ROUTER_API_BASE: Ollama server URL for router
-    
+
     Architecture Note:
         Do NOT use reasoning models (deepseek-r1, o1, etc) for the Router.
         They add "Thinking" latency that defeats the purpose of fast routing.
     """
-    
+
     def __init__(
         self,
         provider: str = None,
@@ -224,16 +224,16 @@ class QueryIntentClassifier:
         self.model = model or settings.LLM_ROUTER_MODEL
         self._openai_client = None
         self._ollama_client = None
-        
+
         logger.info(f"Cognitive Router (Tiered) initialized: provider={self.provider.value}, router_model={self.model}")
-    
+
     def _get_openai_client(self):
         """Lazy initialization of instructor-patched OpenAI client."""
         if self._openai_client is None:
             try:
                 import instructor
                 from openai import OpenAI
-                
+
                 base_client = OpenAI(api_key=settings.OPENAI_API_KEY)
                 self._openai_client = instructor.from_openai(base_client)
             except ImportError as e:
@@ -243,7 +243,7 @@ class QueryIntentClassifier:
                     "Install with: pip install instructor openai"
                 )
         return self._openai_client
-    
+
     def _get_ollama_client(self):
         """Lazy initialization of Ollama client for Router."""
         if self._ollama_client is None:
@@ -260,31 +260,31 @@ class QueryIntentClassifier:
                 logger.error(f"Failed to import httpx: {e}")
                 raise ImportError("httpx package required for Ollama support")
         return self._ollama_client
-    
+
     def _parse_llm_response(self, text: str) -> IntentClassification:
         """Parse LLM response to extract JSON classification."""
         # Try to extract JSON from response
         text = text.strip()
-        
+
         # Handle thinking tags from deepseek-r1
         if "<think>" in text:
             # Extract content after </think>
             parts = text.split("</think>")
             if len(parts) > 1:
                 text = parts[-1].strip()
-        
+
         # Try to find JSON in the response
         json_match = re.search(r'\{[^{}]*"intent"[^{}]*\}', text, re.DOTALL)
         if json_match:
             text = json_match.group(0)
-        
+
         try:
             data = json.loads(text)
-            
+
             # Normalize intent value
             intent_str = data.get("intent", "FACTUAL").upper()
             intent_str = intent_str.replace("_", "_")  # Normalize
-            
+
             # Map to IntentType
             intent_map = {
                 "FACTUAL": IntentType.FACTUAL,
@@ -295,17 +295,17 @@ class QueryIntentClassifier:
                 "CODE_GENERATION": IntentType.CODE_GENERATION,
                 "CODE": IntentType.CODE_GENERATION,  # Common shorthand
             }
-            
+
             intent = intent_map.get(intent_str, IntentType.FACTUAL)
             confidence = float(data.get("confidence", 0.8))
             reasoning = data.get("reasoning", "Classified by LLM")
-            
+
             return IntentClassification(
                 intent=intent,
                 confidence=min(max(confidence, 0.0), 1.0),
                 reasoning=reasoning,
             )
-            
+
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.warning(f"Failed to parse LLM response: {e}, text={text[:100]}")
             # Default fallback
@@ -314,7 +314,7 @@ class QueryIntentClassifier:
                 confidence=0.5,
                 reasoning=f"Parse error, defaulting to FACTUAL: {str(e)[:50]}",
             )
-    
+
     async def _classify_with_openai(
         self,
         query: str,
@@ -322,18 +322,18 @@ class QueryIntentClassifier:
     ) -> ClassificationResult:
         """Classify using OpenAI with instructor."""
         import asyncio
-        
+
         start_time = time.time()
         client = self._get_openai_client()
-        
+
         prompt = CLASSIFICATION_PROMPT.format(
             examples=FEW_SHOT_EXAMPLES,
             query=query,
         )
-        
+
         if conversation_history:
             prompt += f"\n\nConversation context: {conversation_history}"
-        
+
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
@@ -345,9 +345,9 @@ class QueryIntentClassifier:
                 max_tokens=200,
             )
         )
-        
+
         latency_ms = (time.time() - start_time) * 1000
-        
+
         return ClassificationResult(
             intent=result.intent,
             confidence=result.confidence,
@@ -356,7 +356,7 @@ class QueryIntentClassifier:
             model_used=self.model,
             provider="openai",
         )
-    
+
     async def _classify_with_ollama(
         self,
         query: str,
@@ -364,25 +364,25 @@ class QueryIntentClassifier:
     ) -> ClassificationResult:
         """
         Classify using local Ollama model (Router layer).
-        
+
         Uses the ultra-simplified ROUTER_CLASSIFICATION_PROMPT optimized for
         1B models to achieve <300ms classification latency.
         """
         import asyncio
-        
+
         start_time = time.time()
         client = self._get_ollama_client()
-        
+
         # Use ultra-simplified prompt for 1B router models (no reasoning field)
         prompt = ROUTER_CLASSIFICATION_PROMPT.format(query=query)
-        
+
         if conversation_history:
             prompt += f"\n\nContext: {conversation_history}"
-        
+
         logger.info(f"Router calling Ollama: model={self.model}, url={settings.LLM_ROUTER_API_BASE}")
-        
+
         loop = asyncio.get_event_loop()
-        
+
         def call_ollama():
             request_body = {
                 "model": self.model,
@@ -394,38 +394,38 @@ class QueryIntentClassifier:
                 }
             }
             logger.debug(f"Router Ollama request: {request_body}")
-            
+
             response = client.post(
                 "/api/generate",
                 json=request_body,
             )
             response.raise_for_status()
             return response.json()
-        
+
         result = await loop.run_in_executor(None, call_ollama)
-        
+
         latency_ms = (time.time() - start_time) * 1000
         response_text = result.get("response", "")
-        
+
         # Log response for debugging
         logger.info(f"Router response length: {len(response_text)}, latency: {latency_ms:.0f}ms")
         logger.debug(f"Router full response: {response_text}")
-        
+
         if not response_text:
             # Check if there's a thinking field (some models put response there)
             thinking = result.get("thinking", "")
             logger.warning(f"Empty response, thinking field length: {len(thinking)}")
-            
+
             # Try to extract JSON from thinking
             if thinking:
                 response_text = thinking
-        
+
         # Parse the response (handles missing reasoning field gracefully)
         classification = self._parse_llm_response(response_text)
-        
+
         # For router, reasoning is optional - use default if not provided
         reasoning = getattr(classification, 'reasoning', None) or "Classified by router model"
-        
+
         return ClassificationResult(
             intent=classification.intent,
             confidence=classification.confidence,
@@ -434,7 +434,7 @@ class QueryIntentClassifier:
             model_used=self.model,
             provider="ollama",
         )
-    
+
     async def classify(
         self,
         query: str,
@@ -442,18 +442,18 @@ class QueryIntentClassifier:
     ) -> ClassificationResult:
         """
         Classify a query's intent using the configured LLM provider.
-        
+
         Args:
             query: The user's query
             conversation_history: Optional summary of conversation context
-            
+
         Returns:
             ClassificationResult with intent, confidence, reasoning, and latency
         """
         start_time = time.time()
-        
+
         start_time = time.time()
-        
+
         # 0. Deterministic Rules (Priority Override)
         # Handle explicit agent invocation
         if query.strip().startswith("@agent"):
@@ -465,7 +465,7 @@ class QueryIntentClassifier:
                 model_used="deterministic_rule",
                 provider="rule"
             )
-            
+
         # Handle known arXiv search patterns
         lower_query = query.lower()
         if "arxiv" in lower_query and ("search" in lower_query or "find" in lower_query or "paper" in lower_query):
@@ -484,7 +484,7 @@ class QueryIntentClassifier:
                 from app.services.semantic_router import get_semantic_router
                 semantic_router = get_semantic_router()
                 route, confidence = semantic_router.route(query)
-                
+
                 if route != "general_chat" and confidence > 0.8:
                     # Map route names to IntentType
                     route_map = {
@@ -511,13 +511,13 @@ class QueryIntentClassifier:
                 return await self._classify_with_ollama(query, conversation_history)
             else:
                 raise ValueError(f"Unknown provider: {self.provider}")
-                
+
         except Exception as e:
             latency_ms = (time.time() - start_time) * 1000
             logger.warning(
                 f"Classification failed ({self.provider.value}), defaulting to FACTUAL: {e}"
             )
-            
+
             # Fallback to FACTUAL on error
             return ClassificationResult(
                 intent=IntentType.FACTUAL,
@@ -527,7 +527,7 @@ class QueryIntentClassifier:
                 model_used="fallback",
                 provider="fallback",
             )
-    
+
     def classify_sync(
         self,
         query: str,

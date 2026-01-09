@@ -51,7 +51,7 @@ router.include_router(user_layers_router)
 # Audit & Governance
 router.include_router(audit_router, prefix="/audit", tags=["Audit & Governance"])
 
-# Distributed Agents (Phase 3)
+# Distributed Agents
 from app.api.v1.agents import router as agents_router
 router.include_router(agents_router, prefix="/agents", tags=["Distributed Agents"])
 

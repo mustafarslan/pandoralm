@@ -12,12 +12,12 @@ class SlackAgent:
     """
     Agent for handling Slack events and bi-directional communication.
     """
-    
+
     def __init__(self):
         try:
             from slack_sdk.web.async_client import AsyncWebClient
             from slack_sdk.signature import SignatureVerifier
-            
+
             self.client = AsyncWebClient(token=settings.SLACK_BOT_TOKEN)
             self.verifier = SignatureVerifier(settings.SLACK_SIGNING_SECRET)
             self._available = True
@@ -35,7 +35,7 @@ class SlackAgent:
         """Verify Slack request signature."""
         if not self.is_available():
             return False
-            
+
         try:
             return self.verifier.is_valid(
                 body=request_body,
@@ -54,14 +54,14 @@ class SlackAgent:
         if not self.is_available():
             logger.warning("Slack Agent received event but is not configured.")
             return
-            
+
         event = event_data.get("event", {})
         event_type = event.get("type")
-        
+
         # Ignore bot messages to prevent loops
         if event.get("bot_id") or event.get("subtype") == "bot_message":
             return
-            
+
         if event_type in ["message", "app_mention"]:
             # Queue background processing
             if background_tasks:
@@ -80,62 +80,62 @@ class SlackAgent:
         # Remove mention if applicable e.g. <@U123>
         import re
         text = re.sub(r"<@[A-Z0-9]+>", "", text).strip()
-        
+
         logger.info(f"Processing Slack message from {user_id}: {text}")
-        
+
         try:
             # 1. Classify Intent / Route
             # Use Router for now to decide logic.
             # Simplified: Just chat response using heavy model (System 2) or generic chat.
-            
+
             # Simple direct response logic for V1:
-            
+
             # Create a simple "System 1 vs System 2" flow for Slack
             response_text = ""
-            
+
             # Determine intent (optional, for now strictly chat)
             # intent_result = await get_intent_classifier().classify(text)
-            
+
             # Use the LLM logic from GraphRAG reasoning or just simplified chat?
             # Let's reuse the router's chat logic if possible, or build a simple message chain.
             # For simplicity in V1: Reuse simple LLM wrapper or router.
-            
+
             # Construct a response
             # Using Cognitive Router directly requires document context.
             # Here we act as a "Chatbot".
-            
+
             response_text = await self._generate_response(text)
-            
+
             # Reply to Thread if it exists, otherwise channel
             thread_ts = event.get("thread_ts") or event.get("ts")
-            
+
             await self.client.chat_postMessage(
                 channel=channel_id,
                 text=response_text,
                 thread_ts=thread_ts
             )
-            
+
         except Exception as e:
             logger.error(f"Error processing Slack message: {e}")
             # Optional: Error reply?
-            
+
     async def _generate_response(self, query: str) -> str:
         """Generate response using the configured Solver model."""
         # Use existing LLM infrastructure
         # Currently we can instantiate ChatOpenAI or Ollama based on config
         try:
             from app.core.config import settings
-            
+
             if settings.OPENAI_API_KEY:
                 from langchain_openai import ChatOpenAI
                 llm = ChatOpenAI(model=settings.DEFAULT_LLM_MODEL, api_key=settings.OPENAI_API_KEY)
             else:
                 from langchain_community.chat_models import ChatOllama
                 llm = ChatOllama(model=settings.LLM_SOLVER_MODEL, base_url=settings.LLM_SOLVER_API_BASE)
-                
+
             resp = await llm.ainvoke([HumanMessage(content=query)])
             return resp.content
-            
+
         except ImportError:
             return "Error: LLM dependencies missing."
         except Exception as e:

@@ -79,7 +79,7 @@ async def list_collections() -> List[CollectionStatsResponse]:
     """List all LanceDB collections (tables)."""
     vector_store = get_vector_store()
     collections = vector_store.list_collections()
-    
+
     return [
         CollectionStatsResponse(
             name=c["name"],
@@ -98,7 +98,7 @@ async def get_collection_stats(workspace_id: str) -> CollectionStatsResponse:
     """Get detailed stats for a specific collection."""
     vector_store = get_vector_store()
     stats = vector_store.get_collection_stats(workspace_id)
-    
+
     return CollectionStatsResponse(
         name=stats["name"],
         workspace_id=stats["workspace_id"],
@@ -118,11 +118,11 @@ async def get_collection_chunks(
 ) -> PaginatedChunksResponse:
     """
     Get chunks in a collection with pagination.
-    
+
     Optionally filter by document_id.
     """
     vector_store = get_vector_store()
-    
+
     offset = (page - 1) * page_size
     chunks = vector_store.get_chunks(
         workspace_id=workspace_id,
@@ -130,14 +130,14 @@ async def get_collection_chunks(
         offset=offset,
         limit=page_size + 1,  # Extra to check if more
     )
-    
+
     has_more = len(chunks) > page_size
     if has_more:
         chunks = chunks[:page_size]
-    
+
     # Get total count
     stats = vector_store.get_collection_stats(workspace_id)
-    
+
     return PaginatedChunksResponse(
         chunks=[
             VectorChunkResponse(
@@ -163,10 +163,10 @@ async def get_chunk(workspace_id: str, chunk_id: str) -> VectorChunkResponse:
     """Get a specific chunk by ID."""
     vector_store = get_vector_store()
     chunk = vector_store.get_chunk(chunk_id, workspace_id)
-    
+
     if not chunk:
         raise HTTPException(status_code=404, detail="Chunk not found")
-    
+
     return VectorChunkResponse(
         id=chunk.id,
         content=chunk.content,
@@ -186,16 +186,16 @@ async def update_chunk(
 ) -> VectorChunkResponse:
     """
     Update a chunk's content.
-    
+
     If re_embed is True (default), regenerates the embedding vector.
     """
     vector_store = get_vector_store()
-    
+
     # Check chunk exists
     existing = vector_store.get_chunk(chunk_id, workspace_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Chunk not found")
-    
+
     # Generate new embedding if needed
     if update.re_embed:
         embedding_service = get_embedding_service()
@@ -203,7 +203,7 @@ async def update_chunk(
         embedding = result.embedding
     else:
         embedding = existing.embedding
-    
+
     # Update chunk
     updated_chunk = vector_store.update_chunk(
         chunk_id=chunk_id,
@@ -211,10 +211,10 @@ async def update_chunk(
         content=update.content,
         embedding=embedding,
     )
-    
+
     if not updated_chunk:
         raise HTTPException(status_code=500, detail="Failed to update chunk")
-    
+
     # Return updated chunk
     return VectorChunkResponse(
         id=updated_chunk.id,
@@ -231,12 +231,12 @@ async def update_chunk(
 async def delete_chunk(workspace_id: str, chunk_id: str) -> dict:
     """Delete a specific chunk."""
     vector_store = get_vector_store()
-    
+
     success = vector_store.delete_chunk(chunk_id, workspace_id)
-    
+
     if not success:
         raise HTTPException(status_code=404, detail="Chunk not found")
-    
+
     return {"deleted": chunk_id, "workspace_id": workspace_id}
 
 
@@ -244,9 +244,9 @@ async def delete_chunk(workspace_id: str, chunk_id: str) -> dict:
 async def delete_document_chunks(workspace_id: str, document_id: str) -> dict:
     """Delete all chunks for a document."""
     vector_store = get_vector_store()
-    
+
     deleted_count = vector_store.delete_document_chunks(document_id, workspace_id)
-    
+
     return {
         "document_id": document_id,
         "workspace_id": workspace_id,
@@ -258,7 +258,7 @@ async def delete_document_chunks(workspace_id: str, document_id: str) -> dict:
 async def reindex_collection(workspace_id: str) -> dict:
     """
     Trigger full reindex of a collection.
-    
+
     This queues a Celery job for background processing.
     """
     try:
@@ -282,21 +282,21 @@ async def reindex_collection(workspace_id: str) -> dict:
 async def delete_collection(workspace_id: str) -> dict:
     """Delete an entire collection (Vectors + Graph)."""
     vector_store = get_vector_store()
-    
+
     # 1. Delete Vectors (LanceDB)
     success = vector_store.delete_collection(workspace_id)
-    
+
     # 2. Delete Graph (Neo4j)
     try:
         from app.services.graphrag import get_graph_store
         graph_store = get_graph_store()
         graph_store.clear_workspace(workspace_id)
         # Even if vector store had no table (already deleted), we should ensure graph is clean
-        success = True 
+        success = True
     except Exception as e:
         print(f"Error clearing graph for workspace {workspace_id}: {e}", flush=True)
         # Don't fail the request if graph delete fails, but log it
-    
+
     if not success:
         # If both failed (e.g. neither existed), then 404
         # But for now, if vectors succeed or graph succeeds, we return success
@@ -309,17 +309,17 @@ async def delete_collection(workspace_id: str) -> dict:
 async def semantic_search(request: SearchRequest) -> List[SearchResultResponse]:
     """
     Perform semantic search across vectors.
-    
+
     Generates embedding for query and finds similar chunks.
     """
     print(f"DEBUG: Search request for '{request.query[:50]}...' in {request.workspace_id}", flush=True)
-    
+
     # Generate query embedding
     embedding_service = get_embedding_service()
     result = await embedding_service.embed_text(request.query)
-    
+
     print("DEBUG: Embedding generated", flush=True)
-    
+
     # Search
     vector_store = get_vector_store()
     results = vector_store.search(
@@ -329,9 +329,9 @@ async def semantic_search(request: SearchRequest) -> List[SearchResultResponse]:
         document_ids=request.document_ids,
         # allowed_layers=request.allowed_layers # Not yet supported in vector_store, but model accepts it
     )
-    
+
     print(f"DEBUG: Found {len(results)} results", flush=True)
-    
+
     return [
         SearchResultResponse(
             chunk=VectorChunkResponse(

@@ -16,7 +16,7 @@ router = APIRouter()
 
 class CreateWorkspaceRequest(BaseModel):
     name: str
-    
+
     class Config:
         extra = "allow"
 
@@ -30,7 +30,7 @@ class Workspace(BaseModel):
 
 @router.post("/new")
 async def create_workspace(
-    request: CreateWorkspaceRequest, 
+    request: CreateWorkspaceRequest,
     user: UserContext = Depends(require_auth),
     db: AsyncSession = Depends(get_db)
 ):
@@ -38,14 +38,14 @@ async def create_workspace(
     Create a new workspace (Real DB Impl).
     """
     import datetime
-    
+
     slug = request.name.lower().replace(" ", "-")
-    
+
     # Check if exists
     stmt = select(WorkspaceModel).where(WorkspaceModel.slug == slug)
     result = await db.execute(stmt)
     existing = result.scalar_one_or_none()
-    
+
     if existing:
         # Return existing to be idempotent/friendly
         # Or should we Update?
@@ -55,7 +55,7 @@ async def create_workspace(
         db.add(ws)
         await db.commit()
         await db.refresh(ws)
-        
+
         # Only init layers if new
         try:
             # We use singleton service, but we could pass db if we wanted transaction reuse?
@@ -78,14 +78,14 @@ async def list_workspaces(
     stmt = select(WorkspaceModel)
     result = await db.execute(stmt)
     workspaces = result.scalars().all()
-    
+
     return {
         "workspaces": [w.to_dict() for w in workspaces]
     }
 
 @router.get("/{slug}")
 async def get_workspace(
-    slug: str, 
+    slug: str,
     user: UserContext = Depends(require_auth),
     db: AsyncSession = Depends(get_db)
 ):
@@ -93,7 +93,7 @@ async def get_workspace(
     stmt = select(WorkspaceModel).where(WorkspaceModel.slug == slug)
     result = await db.execute(stmt)
     ws = result.scalar_one_or_none()
-    
+
     if not ws:
         # Fallback to mock if not found? No, user forbid mocks.
         raise HTTPException(status_code=404, detail="Workspace not found")

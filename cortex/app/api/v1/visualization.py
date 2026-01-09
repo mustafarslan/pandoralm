@@ -46,7 +46,7 @@ async def get_graph_visualization_data(
 ) -> GraphDataResponse:
     """
     Get graph data formatted for visualization.
-    
+
     Returns nodes and edges in a format compatible with:
     - Cytoscape.js
     - D3.js Force Graph
@@ -54,16 +54,16 @@ async def get_graph_visualization_data(
     """
     target_ws = "*" if workspace_id.lower() == "global" else workspace_id
     graph_store = get_graph_store()
-    
+
     # Check connectivity
     if not graph_store.verify_connectivity():
         raise HTTPException(status_code=503, detail="Neo4j database unavailable")
-    
+
     # Parse entity types filter
     type_filter = None
     if entity_types:
         type_filter = [t.strip() for t in entity_types.split(",")]
-    
+
     # Get entities
     if type_filter:
         entities = []
@@ -78,31 +78,31 @@ async def get_graph_visualization_data(
             workspace_id=workspace_id,
             limit=limit_nodes,
         )
-    
+
     # Get relationships between these entities
     entity_ids = {e.id for e in entities}
     all_relationships = graph_store.get_relationships(
         workspace_id=workspace_id,
         limit=limit_edges,
     )
-    
+
     # Filter relationships to only those between our entities
     relationships = [
         r for r in all_relationships
         if r.source_id in entity_ids and r.target_id in entity_ids
     ]
-    
+
     # Build visualization data
     nodes = []
     type_counts = {}
-    
+
     for entity in entities:
         # Size based on number of connections
         connection_count = sum(
             1 for r in relationships
             if r.source_id == entity.id or r.target_id == entity.id
         )
-        
+
         nodes.append(VisNode(
             id=entity.id,
             label=entity.name,
@@ -110,9 +110,9 @@ async def get_graph_visualization_data(
             description=entity.description[:100] if entity.description else "",
             size=max(10, min(50, connection_count * 5)),
         ))
-        
+
         type_counts[entity.type] = type_counts.get(entity.type, 0) + 1
-    
+
     edges = [
         VisEdge(
             id=r.id,
@@ -123,7 +123,7 @@ async def get_graph_visualization_data(
         )
         for r in relationships
     ]
-    
+
     return GraphDataResponse(
         nodes=nodes,
         edges=edges,
@@ -143,20 +143,20 @@ async def get_cytoscape_format(
 ) -> dict:
     """
     Get graph data in Cytoscape.js format.
-    
+
     Returns elements array ready for Cytoscape initialization.
     """
     graph_store = get_graph_store()
-    
+
     entities = graph_store.get_entities(workspace_id=workspace_id, limit=limit)
     entity_ids = {e.id for e in entities}
-    
+
     relationships = graph_store.get_relationships(workspace_id=workspace_id, limit=limit * 2)
     relationships = [r for r in relationships if r.source_id in entity_ids and r.target_id in entity_ids]
-    
+
     # Build Cytoscape elements
     elements = []
-    
+
     # Add nodes
     for entity in entities:
         elements.append({
@@ -168,7 +168,7 @@ async def get_cytoscape_format(
             },
             "classes": entity.type.lower(),
         })
-    
+
     # Add edges
     for rel in relationships:
         elements.append({
@@ -180,7 +180,7 @@ async def get_cytoscape_format(
                 "weight": rel.weight,
             },
         })
-    
+
     return {
         "elements": elements,
         "style": get_default_cytoscape_style(),
@@ -246,13 +246,13 @@ async def get_community_visualization(
 ) -> dict:
     """
     Get community structure for visualization.
-    
+
     Returns hierarchical community data for treemap or sunburst charts.
     """
     graph_store = get_graph_store()
-    
+
     communities = graph_store.get_communities(workspace_id=workspace_id, level=level)
-    
+
     # Build hierarchical structure
     community_data = []
     for comm in communities:
@@ -264,7 +264,7 @@ async def get_community_visualization(
             "level": comm.level,
             "entities": comm.entity_ids[:10],  # Limit for response size
         })
-    
+
     return {
         "communities": community_data,
         "total": len(community_data),

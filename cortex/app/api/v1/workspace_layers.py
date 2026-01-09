@@ -1,7 +1,6 @@
 """
 Workspace Layer Management API
 Manage knowledge layer subscriptions for workspaces.
-Phase 5-3: Federated Knowledge Architecture
 """
 from typing import List, Optional
 from uuid import UUID
@@ -26,7 +25,7 @@ async def get_workspace_layers(
 ):
     """
     Get all knowledge layers accessible to this workspace.
-    
+
     This includes:
     1. Global System Layers (subscribed)
     2. Global Organization Layers (subscribed)
@@ -48,12 +47,12 @@ async def map_layer_to_workspace(
 ):
     """
     Map a knowledge layer to a workspace.
-    
+
     - 'access_mode': 'read' or 'write'
     - Requires ADMIN role or Layer Owner.
     """
     # TODO: Strict RBAC check here (e.g. check if user is admin or layer owner)
-    
+
     # Check if access_mode is valid
     if access_mode not in ["read", "write"]:
         raise HTTPException(status_code=400, detail="access_mode must be 'read' or 'write'")
@@ -78,11 +77,11 @@ async def unmap_layer_from_workspace(
     Remove a layer from a workspace.
     """
     # TODO: Strict RBAC check here
-    
+
     deleted = await service.remove_layer_from_workspace(workspace_id, layer_id, db)
     if not deleted:
         raise HTTPException(status_code=404, detail="Mapping not found")
-        
+
     return {"status": "success", "message": "Layer removed from workspace"}
 
 
@@ -99,12 +98,12 @@ async def initialize_workspace(
     """
     user_id = token_payload.get("sub")
     username = token_payload.get("preferred_username", "unknown")
-    
+
     if not user_id:
         raise HTTPException(status_code=401, detail="User ID not found in token")
 
     mappings = await service.initialize_workspace_layers(workspace_id, user_id, username, db)
-    
+
     return {
         "status": "success",
         "message": f"Initialized {len(mappings)} layers for workspace {workspace_id}",

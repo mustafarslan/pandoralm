@@ -94,7 +94,7 @@ class GraphQueryResponse(BaseModel):
 async def start_graph_indexing(request: GraphIndexRequest) -> dict:
     """
     Trigger GraphRAG indexing for documents.
-    
+
     This queues a Celery job that:
     1. Extracts entities using LLM
     2. Extracts relationships
@@ -124,7 +124,7 @@ async def get_indexing_status(job_id: str) -> GraphIndexStatus:
     try:
         from app.workers.celery_app import celery_app
         result = celery_app.AsyncResult(job_id)
-        
+
         status_map = {
             "PENDING": "pending",
             "STARTED": "running",
@@ -133,14 +133,14 @@ async def get_indexing_status(job_id: str) -> GraphIndexStatus:
             "FAILURE": "failed",
             "REVOKED": "cancelled",
         }
-        
+
         status = status_map.get(result.status, "unknown")
-        
+
         # Get progress info if available
         info = result.info if result.info else {}
         if isinstance(info, Exception):
             info = {"error": str(info)}
-        
+
         return GraphIndexStatus(
             job_id=job_id,
             status=status,
@@ -165,23 +165,23 @@ async def get_indexing_status(job_id: str) -> GraphIndexStatus:
 async def query_graph(request: GraphQueryRequest) -> GraphQueryResponse:
     """
     Execute a GraphRAG query.
-    
+
     - LOCAL: Find relevant entities and their immediate context
     - GLOBAL: Query community summaries for high-level themes
     """
     graph_store = get_graph_store()
-    
+
     # Check connectivity
     if not graph_store.verify_connectivity():
         raise HTTPException(status_code=503, detail="Neo4j database unavailable")
-    
+
     if request.search_type == SearchType.GLOBAL:
         # Global search - query communities
         result = graph_store.global_search(
             workspace_id=request.workspace_id,
             top_communities=request.top_k,
         )
-        
+
         return GraphQueryResponse(
             query=request.query,
             search_type=request.search_type,
@@ -209,12 +209,12 @@ async def query_graph(request: GraphQueryRequest) -> GraphQueryResponse:
             hops=2,
             limit=request.top_k,
         )
-        
+
         # Build context from entities
         entities = result.get("entities", [])
         context_parts = [f"- {e.name}: {e.description}" for e in entities[:10]]
         context = "\n".join(context_parts)
-        
+
         return GraphQueryResponse(
             query=request.query,
             search_type=request.search_type,
@@ -251,13 +251,13 @@ async def list_entities(
 ) -> List[EntityResponse]:
     """List entities in the knowledge graph."""
     graph_store = get_graph_store()
-    
+
     entities = graph_store.get_entities(
         workspace_id=workspace_id,
         entity_type=entity_type,
         limit=limit,
     )
-    
+
     return [
         EntityResponse(
             id=e.id,
@@ -279,14 +279,14 @@ async def list_relationships(
 ) -> List[RelationshipResponse]:
     """List relationships in the knowledge graph."""
     graph_store = get_graph_store()
-    
+
     relationships = graph_store.get_relationships(
         workspace_id=workspace_id,
         source_id=source_id,
         target_id=target_id,
         limit=limit,
     )
-    
+
     return [
         RelationshipResponse(
             id=r.id,
@@ -306,12 +306,12 @@ async def list_communities(
 ) -> List[CommunityResponse]:
     """List detected communities in the graph."""
     graph_store = get_graph_store()
-    
+
     communities = graph_store.get_communities(
         workspace_id=workspace_id,
         level=level,
     )
-    
+
     return [
         CommunityResponse(
             id=c.id,
@@ -329,7 +329,7 @@ async def list_communities(
 async def get_graph_stats(workspace_id: str) -> dict:
     """Get graph statistics for a workspace."""
     graph_store = get_graph_store()
-    
+
     try:
         stats = graph_store.get_stats(workspace_id)
         return {
@@ -352,7 +352,7 @@ async def get_graph_stats(workspace_id: str) -> dict:
 async def clear_workspace_graph(workspace_id: str) -> dict:
     """Clear all graph data for a workspace."""
     graph_store = get_graph_store()
-    
+
     try:
         graph_store.clear_workspace(workspace_id)
         return {"workspace_id": workspace_id, "status": "cleared"}
@@ -364,9 +364,9 @@ async def clear_workspace_graph(workspace_id: str) -> dict:
 async def graph_health() -> dict:
     """Check Neo4j connectivity."""
     graph_store = get_graph_store()
-    
+
     connected = graph_store.verify_connectivity()
-    
+
     return {
         "status": "healthy" if connected else "unhealthy",
         "neo4j_connected": connected,

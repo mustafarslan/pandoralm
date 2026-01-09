@@ -27,7 +27,7 @@ Summary:
 class MemoryConsolidationService:
     def __init__(self):
         self.mem0 = get_mem0_client()
-        
+
     async def summarize_memories_for_user(self, user_id: str, days: int = 1) -> Optional[str]:
         """
         Summarize memories from the last N days.
@@ -36,21 +36,21 @@ class MemoryConsolidationService:
         # 1. Fetch all memories
         # Mem0 doesn't support date filtering in get_all yet, so we filter in memory
         all_memories = self.mem0.get_all(user_id=user_id)
-        
+
         if not all_memories:
             logger.info(f"No memories found for user {user_id}")
             return None
-            
+
         # 2. Filter by date and exclude existing summaries
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         recent_memories = []
-        
+
         for mem in all_memories:
             # Skip if already a summary
             meta = mem.get("metadata", {}) or {}
             if meta.get("type") == "summary":
                 continue
-                
+
             # Check date
             created_at_str = mem.get("created_at")
             if created_at_str:
@@ -60,28 +60,28 @@ class MemoryConsolidationService:
                         created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
                     else:
                         created_at = datetime.fromisoformat(created_at_str)
-                        
+
                     # Naive/Aware check - assume UTC if naive
                     if created_at.tzinfo is None:
                         created_at = created_at.replace(tzinfo=None) # Compare naive-to-naive
-                        
+
                     if created_at >= cutoff_date:
                         recent_memories.append(mem)
                 except Exception as e:
                     logger.warning(f"Failed to parse date {created_at_str}: {e}")
-                    
+
         if not recent_memories:
             logger.info(f"No recent memories to summarize for user {user_id} (last {days} days)")
             return None
-            
+
         logger.info(f"Summarizing {len(recent_memories)} memories for user {user_id}")
-        
+
         # 3. Generate Summary
         summary_text = await self._generate_summary(recent_memories)
-        
+
         if not summary_text:
             return None
-            
+
         # 4. Store in Postgres (Record Keeping)
         async with async_session_maker() as session:
             db_summary = MemorySummary(
@@ -93,7 +93,7 @@ class MemoryConsolidationService:
             )
             session.add(db_summary)
             await session.commit()
-            
+
         # 5. Store in Mem0 (Semantic Recall)
         # We store the summary as a new memory but marked as 'summary'
         self.mem0.add(
@@ -101,12 +101,12 @@ class MemoryConsolidationService:
             user_id=user_id,
             agent_id="memory_consolidator"
         )
-        
+
         # We need to manually update the metadata to set type='summary' since .add() might not expose it fully
         # depending on Mem0 version, but our wrapper passes metadata={"agent_id": ...}.
         # Wait, Mem0Client.add() takes agent_id but hardcodes metadata={"agent_id": agent_id}.
         # I should update Mem0Client.add to accept custom metadata or just rely on agent_id.
-        
+
         return summary_text
 
     async def _generate_summary(self, memories: List[dict]) -> str:
@@ -114,11 +114,11 @@ class MemoryConsolidationService:
         try:
             from openai import OpenAI
             import httpx
-            
+
             # Format text
             mem_text = "\n".join([f"- {m.get('memory', m.get('text', ''))}" for m in memories])
             prompt = SUMMARY_PROMPT.format(memories=mem_text)
-            
+
             # Use same config as Router or Settings
             if settings.LLM_PROVIDER == "ollama":
                 # Ollama Call
@@ -143,7 +143,7 @@ class MemoryConsolidationService:
                     temperature=0.3
                 )
                 return response.choices[0].message.content.strip()
-                
+
         except Exception as e:
             logger.error(f"Summarization failed: {e}")
             return ""

@@ -14,7 +14,7 @@ from app.core.middleware import AuthMiddleware
 from app.core.telemetry import setup_telemetry, ReBACTelemetryMiddleware
 
 # =============================================================================
-# High-Performance I/O Policy (Phase 8)
+# High-Performance I/O Policy
 # =============================================================================
 try:
     import uvloop
@@ -38,23 +38,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     print(f"📦 LanceDB: {settings.LANCEDB_PATH}")
     print(f"📦 LanceDB: {settings.LANCEDB_PATH}")
     print(f"🔄 Redis: {settings.REDIS_URL}")
-    
+
     # Initialize Telemetry (middleware already added in create_app)
     setup_telemetry(app)
-    
+
     # Tiered Inference Configuration
     print(f"")
     print(f"⚡ Tiered Inference Configuration:")
     print(f"   Router Model: {settings.LLM_ROUTER_MODEL} @ {settings.LLM_ROUTER_API_BASE}")
     print(f"   Solver Model: {settings.LLM_SOLVER_MODEL} @ {settings.LLM_SOLVER_API_BASE}")
-    
+
     # Warning about Ollama model swapping on single instance
     if settings.LLM_ROUTER_API_BASE == settings.LLM_SOLVER_API_BASE:
         print(f"")
         print(f"⚠️  Running Tiered Inference on single Ollama instance.")
         print(f"   Expect model loading delays unless OLLAMA_KEEP_ALIVE=-1 is set")
         print(f"   or sufficient VRAM is available for both models.")
-    
+
     yield
     # Shutdown
     print("🧠 Pandora Cortex shutting down")

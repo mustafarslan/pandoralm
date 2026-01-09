@@ -82,7 +82,7 @@ async def query(
 ) -> QueryResponse:
     """
     Execute a hybrid RAG query.
-    
+
     Modes:
     - **auto**: Automatically detect best search type
     - **vector**: Semantic similarity search (LanceDB)
@@ -92,14 +92,14 @@ async def query(
     # Authorization: Resolve Knowledge Layers (RBAC)
     user_id = token_payload.get("sub") or token_payload.get("preferred_username")
     realm_roles = token_payload.get("realm_access", {}).get("roles", [])
-    
+
     # 1. Base Layer: Default/Public
     allowed_layers = ["default", "public"]
-    
+
     # 2. User Layer: Private data
     if user_id:
         allowed_layers.append(user_id)
-        
+
     # 3. Role-Based Layers: Map Keycloak groups to layers
     # e.g. "group:engineering" -> "layer_engineering"
     for role in realm_roles:
@@ -107,15 +107,15 @@ async def query(
             # Normalize group name to layer ID convention
             layer_name = role.replace("group:", "layer_")
             allowed_layers.append(layer_name)
-            
+
     # Admin Override: Can see everything (or specific admin layers)
     if "admin" in realm_roles or "vector_ops" in realm_roles:
-        # In a real system, you might fetch ALL layers, or use a wildcard logic 
+        # In a real system, you might fetch ALL layers, or use a wildcard logic
         # For this implementation, we assume admin has explicit access to sensitive layers
         allowed_layers.extend(["restricted", "admin"])
 
     query_router = get_query_router()
-    
+
     # Map request mode to internal QueryMode
     mode_map = {
         QueryModeEnum.auto: QueryMode.AUTO,
@@ -123,7 +123,7 @@ async def query(
         QueryModeEnum.graph: QueryMode.GRAPH,
         QueryModeEnum.hybrid: QueryMode.HYBRID,
     }
-    
+
     mode = mode_map[request.mode]
 
     # Audit Log (Background Task)
@@ -138,7 +138,7 @@ async def query(
             "top_k": request.top_k
         }
     )
-    
+
     try:
         result = await query_router.route_query(
             query=request.query,
@@ -148,10 +148,10 @@ async def query(
             document_ids=request.document_ids,
             allowed_layers=allowed_layers, # Pass Security Context
         )
-        
+
         # Extract plain text context for evaluation
         retrieved_context = [s["content"] for s in result.sources]
-        
+
         return QueryResponse(
             answer=result.content,  # Renamed from context to answer for clarity
             metadata=QueryMetadata(
@@ -188,7 +188,7 @@ async def query(
             ],
             confidence=result.confidence,
         )
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
 

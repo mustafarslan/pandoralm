@@ -31,10 +31,10 @@ class ClassifyResponse(BaseModel):
 async def classify_query(request: ClassifyRequest) -> ClassifyResponse:
     """
     Classify a query's intent using the Cognitive Router.
-    
+
     This endpoint tests the LLM-based intent classification without
     performing the actual search. Useful for debugging and testing.
-    
+
     Returns:
         - intent: FACTUAL, THEMATIC, RESEARCH, or CODE_GENERATION
         - confidence: 0.0 to 1.0
@@ -47,7 +47,7 @@ async def classify_query(request: ClassifyRequest) -> ClassifyResponse:
         query=request.query,
         conversation_history=request.conversation_history,
     )
-    
+
     return ClassifyResponse(
         query=request.query,
         intent=result.intent.value,
@@ -63,7 +63,7 @@ async def classify_query(request: ClassifyRequest) -> ClassifyResponse:
 async def router_config() -> dict:
     """Get current Cognitive Router configuration."""
     from app.core.config import settings
-    
+
     return {
         "provider": settings.ROUTER_LLM_PROVIDER,
         "model": settings.ROUTER_LLM_MODEL,
@@ -76,18 +76,18 @@ async def router_config() -> dict:
 async def test_classification() -> dict:
     """
     Quick test of the Cognitive Router with sample queries.
-    
+
     Returns classification results for 4 sample queries.
     """
     classifier = get_intent_classifier()
-    
+
     test_queries = [
         ("What is the capital of France?", IntentType.FACTUAL),
         ("How do compliance changes impact hiring?", IntentType.THEMATIC),
         ("Research competitor pricing", IntentType.RESEARCH),
         ("Write a Python function", IntentType.CODE_GENERATION),
     ]
-    
+
     results = []
     for query, expected in test_queries:
         result = await classifier.classify(query)
@@ -99,9 +99,9 @@ async def test_classification() -> dict:
             "confidence": result.confidence,
             "latency_ms": result.latency_ms,
         })
-    
+
     correct = sum(1 for r in results if r["correct"])
-    
+
     return {
         "provider": classifier.provider.value,
         "model": classifier.model,

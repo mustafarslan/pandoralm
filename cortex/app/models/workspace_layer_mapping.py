@@ -21,35 +21,35 @@ from app.core.database import Base
 class WorkspaceLayerMapping(Base):
     """
     Maps workspaces to accessible knowledge layers.
-    
+
     This is the core of the Federated Knowledge architecture:
     - Workspaces don't "own" data anymore
     - They reference shared global layers or private user layers
     - Each mapping can specify read/write access
     """
     __tablename__ = "workspace_layer_mappings"
-    
+
     id: Mapped[str] = mapped_column(
         UUID(as_uuid=False),
         primary_key=True,
         default=lambda: str(uuid4())
     )
-    
+
     workspace_id: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
-    
+
     layer_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False),
         ForeignKey("layers.id", ondelete="CASCADE"),
         nullable=False
     )
-    
+
     access_mode: Mapped[str] = mapped_column(String(20), default="read")  # "read" | "write"
-    
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow
     )
-    
+
     # Relationships
     layer: Mapped["Layer"] = relationship("Layer", back_populates="workspace_mappings")
 

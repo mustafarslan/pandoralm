@@ -4,7 +4,6 @@ Revision ID: 002_add_layer_quotas
 Revises: 001_add_layers
 Create Date: 2026-01-03
 
-Phase 5-3: Enterprise Security & Governance
 """
 from typing import Sequence, Union
 
@@ -50,7 +49,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Drop index
     op.drop_index(op.f('ix_layers_owner_user_id'), table_name='layers')
-    
+
     # Drop columns
     op.drop_column('layers', 'deleted_at')
     op.drop_column('layers', 'is_soft_deleted')
@@ -58,6 +57,6 @@ def downgrade() -> None:
     op.drop_column('layers', 'storage_quota_bytes')
     op.drop_column('layers', 'quota_tier')
     op.drop_column('layers', 'owner_user_id')
-    
+
     # Drop enum
     op.execute("DROP TYPE IF EXISTS quotatier")

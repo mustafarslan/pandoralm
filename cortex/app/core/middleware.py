@@ -13,12 +13,12 @@ from app.core.security import get_validator, UserContext
 class AuthMiddleware(BaseHTTPMiddleware):
     """
     Middleware that extracts and validates JWT tokens.
-    
+
     Attaches user context to request.state.user for all routes.
     Does not block requests - authentication is optional at middleware level.
     Use dependencies for required auth.
     """
-    
+
     # Paths that skip auth processing entirely
     SKIP_PATHS = [
         "/health",
@@ -27,19 +27,19 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/openapi.json",
         "/redoc",
     ]
-    
+
     async def dispatch(self, request: Request, call_next) -> Response:
         # Skip auth for certain paths
         if any(request.url.path.startswith(p) for p in self.SKIP_PATHS):
             request.state.user = None
             return await call_next(request)
-        
+
         # Extract token from Authorization header
         auth_header = request.headers.get("Authorization", "")
-        
+
         if auth_header.startswith("Bearer "):
             token = auth_header[7:]
-            
+
             try:
                 # Validate token
                 if settings.DEV_MODE_SKIP_AUTH:
@@ -58,10 +58,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 else:
                     validator = get_validator()
                     claims = await validator.validate_token(token)
-                    
+
                     # Build user context
                     realm_access = claims.get("realm_access", {})
-                    
+
                     request.state.user = UserContext(
                         sub=claims.get("sub", ""),
                         email=claims.get("email", ""),
@@ -79,7 +79,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 request.state.user = None
         else:
             request.state.user = None
-        
+
         return await call_next(request)
 
 

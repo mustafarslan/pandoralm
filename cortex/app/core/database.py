@@ -42,7 +42,7 @@ async_session_maker = async_sessionmaker(
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     FastAPI dependency for database sessions.
-    
+
     Usage:
         @router.get("/")
         async def endpoint(db: AsyncSession = Depends(get_db)):

@@ -1,4 +1,4 @@
-import { titleCase } from "text-case";
+import { titleCase } from "@/utils/string";
 
 export default function WorkspaceMemberRow({ user }) {
   return (

@@ -49,12 +49,12 @@ class QuotaTier(str, enum.Enum):
 class Layer(Base):
     """
     Knowledge Layer for vector partitioning.
-    
+
     Each layer represents a logical partition of the vector store,
     enabling multi-tenant data isolation and ReBAC enforcement.
     """
     __tablename__ = "layers"
-    
+
     id: Mapped[str] = mapped_column(
         UUID(as_uuid=False),
         primary_key=True,
@@ -71,16 +71,16 @@ class Layer(Base):
         DateTime,
         default=datetime.utcnow
     )
-    
+
     # New fields (Phase 5-3 ReBAC & Governance)
     owner_user_id: Mapped[Optional[str]] = mapped_column(String(255), index=True, nullable=True)
     quota_tier: Mapped[QuotaTier] = mapped_column(
-        Enum(QuotaTier), 
+        Enum(QuotaTier),
         default=QuotaTier.FREE
     )
     storage_quota_bytes: Mapped[int] = mapped_column(BigInteger, default=104857600)  # 100MB
     storage_used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
-    
+
     # Federated Knowledge (Phase 6)
     is_global: Mapped[bool] = mapped_column(Boolean, default=False)
     """
@@ -91,23 +91,23 @@ class Layer(Base):
 
     is_soft_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    
+
     # Relationships
     permissions: Mapped[List["LayerPermission"]] = relationship(
         "LayerPermission",
         back_populates="layer",
         cascade="all, delete-orphan"
     )
-    
+
     workspace_mappings: Mapped[List["WorkspaceLayerMapping"]] = relationship(
         "WorkspaceLayerMapping",
         back_populates="layer",
         cascade="all, delete-orphan"
     )
-    
+
     def __repr__(self) -> str:
         return f"<Layer {self.name} ({self.type.value})>"
-    
+
     def to_dict(self) -> dict:
         """Convert to API response format."""
         return {
@@ -129,15 +129,15 @@ class Layer(Base):
 class LayerPermission(Base):
     """
     Permission mapping from Keycloak roles to Layer access.
-    
+
     Supports:
     - Exact matches: role_pattern = "group:engineering"
     - Wildcard matches: role_pattern = "group:%" matches "group:*"
-    
+
     The role_pattern column has a B-Tree index for fast lookup.
     """
     __tablename__ = "layer_permissions"
-    
+
     id: Mapped[str] = mapped_column(
         UUID(as_uuid=False),
         primary_key=True,
@@ -158,18 +158,18 @@ class LayerPermission(Base):
         nullable=False,
         default=AccessLevel.READ
     )
-    
+
     # Relationships
     layer: Mapped["Layer"] = relationship("Layer", back_populates="permissions")
-    
+
     # Explicit B-Tree index on role_pattern for query optimization
     __table_args__ = (
         Index("ix_layer_permissions_role_pattern_btree", "role_pattern"),
     )
-    
+
     def __repr__(self) -> str:
         return f"<LayerPermission {self.role_pattern} -> {self.layer_id} ({self.access_level.value})>"
-    
+
     def to_dict(self) -> dict:
         """Convert to API response format."""
         return {
@@ -199,7 +199,7 @@ class LayerResponse(BaseModel):
     type: LayerType
     color: str
     created_at: Optional[datetime] = None
-    
+
     # Phase 5-3 Fields
     owner_user_id: Optional[str] = None
     quota_tier: QuotaTier = QuotaTier.FREE
@@ -207,7 +207,7 @@ class LayerResponse(BaseModel):
     storage_used_bytes: int
     is_soft_deleted: bool
     deleted_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -224,7 +224,7 @@ class PermissionResponse(BaseModel):
     layer_id: str
     role_pattern: str
     access_level: AccessLevel
-    
+
     class Config:
         from_attributes = True
 

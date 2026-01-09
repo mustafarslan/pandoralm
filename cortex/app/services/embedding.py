@@ -60,7 +60,7 @@ class EmbeddingConfig:
     dimensions: int = 1536
     batch_size: int = field(default_factory=lambda: EMBEDDING_BATCH_SIZE)
     concurrency: int = field(default_factory=lambda: EMBEDDING_CONCURRENCY)
-    
+
     @classmethod
     def from_settings(cls) -> "EmbeddingConfig":
         """Create config from application settings."""
@@ -69,7 +69,7 @@ class EmbeddingConfig:
             provider = EmbeddingProvider(provider_str)
         except ValueError:
             provider = EmbeddingProvider.OPENAI
-            
+
         return cls(
             model=settings.DEFAULT_EMBEDDING_MODEL,
             provider=provider,
@@ -89,19 +89,19 @@ class EmbeddingResult:
 class EmbeddingService:
     """
     High-Performance Embedding Service for PandoraLM.
-    
+
     Supports:
     - OpenAI embeddings (text-embedding-3-small/large, ada-002)
     - Sentence Transformers (local, CPU/GPU)
     - Ollama embeddings (local)
     - ONNX Runtime (accelerated local inference)
-    
+
     Performance Features:
     - Parallel batch processing with asyncio.gather()
     - Semaphore-based concurrency limiting
     - Shared thread pool for blocking operations
     """
-    
+
     def __init__(self, config: EmbeddingConfig = None):
         self.config = config or EmbeddingConfig.from_settings()
         self._openai_client = None
@@ -112,7 +112,7 @@ class EmbeddingService:
             f"[Embedding] Initialized: provider={self.config.provider.value}, "
             f"batch_size={self.config.batch_size}, concurrency={self.config.concurrency}"
         )
-    
+
     @property
     def openai_client(self):
         """Lazy initialization of OpenAI client."""
@@ -123,7 +123,7 @@ class EmbeddingService:
             except ImportError:
                 raise ImportError("openai package not installed")
         return self._openai_client
-    
+
     @property
     def sentence_transformer(self):
         """Lazy initialization of Sentence Transformer model."""
@@ -154,7 +154,7 @@ class EmbeddingService:
                 from transformers import AutoTokenizer
                 from optimum.onnxruntime import ORTModelForFeatureExtraction
                 import torch
-                
+
                 logger.info(f"[Embedding/ONNX] Loading model {self.config.model}")
                 tokenizer = AutoTokenizer.from_pretrained(self.config.model)
                 model = ORTModelForFeatureExtraction.from_pretrained(self.config.model, export=True)
@@ -165,26 +165,26 @@ class EmbeddingService:
                  logger.error(f"[Embedding/ONNX] Failed to load model: {e}")
                  raise e
         return self._onnx_pipeline
-    
+
     # =========================================================================
     # Public API
     # =========================================================================
-    
+
     async def embed_text(self, text: str) -> EmbeddingResult:
         """Generate embedding for a single text."""
         results = await self.embed_texts([text])
         return results[0]
-    
+
     async def embed_texts(self, texts: List[str]) -> List[EmbeddingResult]:
         """
         Generate embeddings for multiple texts with parallel batch processing.
-        
+
         This is the main entry point for high-performance embedding.
         Texts are split into batches and processed concurrently.
         """
         if not texts:
             return []
-            
+
         if self.config.provider == EmbeddingProvider.OPENAI:
             return await self._embed_openai_parallel(texts)
         elif self.config.provider == EmbeddingProvider.SENTENCE_TRANSFORMERS:
@@ -195,15 +195,15 @@ class EmbeddingService:
             return await self._embed_onnx(texts)
         else:
             raise ValueError(f"Unknown provider: {self.config.provider}")
-    
+
     # =========================================================================
     # OpenAI Parallel Embedding
     # =========================================================================
-    
+
     async def _embed_openai_parallel(self, texts: List[str]) -> List[EmbeddingResult]:
         """
         Generate embeddings using OpenAI API with parallel batch processing.
-        
+
         Uses asyncio.gather() to process multiple batches concurrently,
         with semaphore-based rate limiting to prevent API overload.
         """
@@ -212,9 +212,9 @@ class EmbeddingService:
             texts[i:i + self.config.batch_size]
             for i in range(0, len(texts), self.config.batch_size)
         ]
-        
+
         logger.info(f"[Embedding/OpenAI] Processing {len(texts)} texts in {len(batches)} batches (concurrency={self.config.concurrency})")
-        
+
         # Process batches in parallel with semaphore limiting
         async def process_batch(batch: List[str]) -> List[EmbeddingResult]:
             async with self._semaphore:
@@ -234,35 +234,35 @@ class EmbeddingService:
                     )
                     for item in response.data
                 ]
-        
+
         # Execute all batches concurrently
         batch_results = await asyncio.gather(*[process_batch(b) for b in batches])
-        
+
         # Flatten results
         results = []
         for batch_result in batch_results:
             results.extend(batch_result)
-        
+
         logger.info(f"[Embedding/OpenAI] Completed {len(results)} embeddings")
         return results
-    
+
     # =========================================================================
     # Ollama Parallel Embedding
     # =========================================================================
-    
+
     async def _embed_ollama_parallel(self, texts: List[str]) -> List[EmbeddingResult]:
         """
         Generate embeddings using Ollama with parallel HTTP requests.
-        
+
         Ollama's /api/embeddings endpoint doesn't support batching,
         so we parallelize individual requests with semaphore limiting.
         """
         import httpx
-        
+
         ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
-        
+
         logger.info(f"[Embedding/Ollama] Processing {len(texts)} texts in parallel (concurrency={self.config.concurrency})")
-        
+
         async def embed_single(client: httpx.AsyncClient, text: str) -> EmbeddingResult:
             async with self._semaphore:
                 response = await client.post(
@@ -275,35 +275,35 @@ class EmbeddingService:
                 )
                 response.raise_for_status()
                 data = response.json()
-                
+
                 return EmbeddingResult(
                     embedding=data["embedding"],
                     tokens_used=0,
                     model=self.config.model,
                 )
-        
+
         # Process all texts in parallel with shared client
         async with httpx.AsyncClient() as client:
             results = await asyncio.gather(*[embed_single(client, text) for text in texts])
-        
+
         logger.info(f"[Embedding/Ollama] Completed {len(results)} embeddings")
         return results
-    
+
     # =========================================================================
     # SentenceTransformers (Local) Embedding
     # =========================================================================
-    
+
     async def _embed_sentence_transformers(self, texts: List[str]) -> List[EmbeddingResult]:
         """
         Generate embeddings using Sentence Transformers.
-        
+
         SentenceTransformers already handles batching internally,
         so we just run it in a thread pool to avoid blocking.
         """
         loop = asyncio.get_event_loop()
-        
+
         logger.info(f"[Embedding/ST] Processing {len(texts)} texts with SentenceTransformers")
-        
+
         # Run in thread pool (SentenceTransformers is synchronous)
         embeddings = await loop.run_in_executor(
             get_thread_pool(),
@@ -314,7 +314,7 @@ class EmbeddingService:
                 convert_to_numpy=True,
             )
         )
-        
+
         results = [
             EmbeddingResult(
                 embedding=embedding.tolist(),
@@ -323,56 +323,56 @@ class EmbeddingService:
             )
             for embedding in embeddings
         ]
-        
+
         logger.info(f"[Embedding/ST] Completed {len(results)} embeddings")
         return results
 
     # =========================================================================
     # ONNX Runtime (Accelerated Local) Embedding
     # =========================================================================
-    
+
     async def _embed_onnx(self, texts: List[str]) -> List[EmbeddingResult]:
         """
         Generate embeddings using ONNX Runtime (via Optimum).
-        
+
         Provides hardware-accelerated inference (CPU/AVX512 or GPU)
         for local models.
         """
         import torch
         loop = asyncio.get_event_loop()
         model, tokenizer = self.onnx_pipeline
-        
+
         logger.info(f"[Embedding/ONNX] Processing {len(texts)} texts with ONNX Runtime")
-        
+
         def _run_onnx_inference(batch_texts):
              # Tokenize
             inputs = tokenizer(
-                batch_texts, 
-                padding=True, 
-                truncation=True, 
+                batch_texts,
+                padding=True,
+                truncation=True,
                 return_tensors="pt"
             )
-            
+
             # Run inference
             with torch.no_grad():
                 outputs = model(**inputs)
-            
+
             # Mean Pooling - Take attention mask into account for correct averaging
             token_embeddings = outputs.last_hidden_state
             attention_mask = inputs['attention_mask']
-            
+
             input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
             sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
             sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
             embeddings = sum_embeddings / sum_mask
-            
+
             return embeddings.tolist()
 
         # Run in thread pool
-        # For very large datasets, we should batch manually here too, 
+        # For very large datasets, we should batch manually here too,
         # but for typical ingestion chunks (100-500), one batch is often fine or handled by caller.
         # We obey EMBEDDING_BATCH_SIZE.
-        
+
         all_embeddings = []
         for i in range(0, len(texts), self.config.batch_size):
             batch = texts[i:i + self.config.batch_size]
@@ -381,7 +381,7 @@ class EmbeddingService:
                  lambda: _run_onnx_inference(batch)
             )
             all_embeddings.extend(batch_embeddings)
-            
+
         return [
             EmbeddingResult(
                 embedding=emb,
@@ -390,11 +390,11 @@ class EmbeddingService:
             )
             for emb in all_embeddings
         ]
-    
+
     # =========================================================================
     # Utility Methods
     # =========================================================================
-    
+
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the current embedding model."""
         model_dims = {
@@ -402,7 +402,7 @@ class EmbeddingService:
             "text-embedding-3-large": 3072,
             "text-embedding-ada-002": 1536,
         }
-        
+
         return {
             "provider": self.config.provider.value,
             "model": self.config.model,

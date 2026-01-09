@@ -15,11 +15,11 @@ class MemorySummary(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
     summary_text: Mapped[str] = mapped_column(Text, nullable=False)
-    
+
     # Time range this summary covers
     date_range_start: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     date_range_end: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     metadata_json: Mapped[dict] = mapped_column(JSON, default={})
 

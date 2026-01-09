@@ -43,11 +43,11 @@ async def get_meeting_source(
     # We must also check valid layer access.
     # For now, we assume if the user knows the layer_id and meeting_id, and has the role, it's ok.
     # In strict mode, we should call layer_manager.verify_access(user, layer_id, "READ").
-    
+
     # 2. Generate URL
     storage = get_storage_service()
     key = f"{layer_id}/{meeting_id}.webm"
-    
+
     # Check if object exists (optional, saves 404 on frontend)
     # objects = storage.list_objects(settings.S3_BUCKET_AUDIO, key)
     # if not objects:
@@ -77,14 +77,14 @@ async def get_meeting_transcript(
     Retrieves chunks from LanceDB matched by document_id=meeting_id.
     """
     vector_store = get_vector_store()
-    
+
     # We use 'layer_id' as 'workspace_id' in LanceDBStore based on implementation
     chunks = vector_store.get_chunks(
-        workspace_id=layer_id, 
+        workspace_id=layer_id,
         document_id=meeting_id,
         limit=1000  # Assuming one meeting fits in 1000 chunks
     )
-    
+
     if not chunks:
         # Try generic search if document_id filter fails?
         # But document_id IS the meeting key.
@@ -96,7 +96,7 @@ async def get_meeting_transcript(
         # Parse timestamp/speaker from metadata
         # Expecting metadata format: {"start": 0.0, "end": 10.0, "speaker": "A", ...}
         # If not present, infer or skip.
-        
+
         try:
             start = float(meta.get("start", 0.0))
             end = float(meta.get("end", 0.0))
@@ -105,7 +105,7 @@ async def get_meeting_transcript(
             start = 0.0
             end = 0.0
             speaker = "Unknown"
-            
+
         segments.append(TranscriptSegment(
             start=start,
             end=end,

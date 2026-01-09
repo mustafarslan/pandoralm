@@ -18,7 +18,3 @@ debug_*.py
 core_logs.txt
 cortex_logs.txt
 
-# Agent Artifacts
-.agent/
-.agent
-

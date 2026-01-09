@@ -1,10 +1,8 @@
 """Create layers and layer_permissions tables
 
 Revision ID: 001_add_layers
-Revises: 
+Revises:
 Create Date: 2025-12-28
-
-Phase 5-3: Enterprise Security & Governance
 """
 from typing import Sequence, Union
 
@@ -28,13 +26,13 @@ def upgrade() -> None:
         WHEN duplicate_object THEN null;
     END $$;
     """)
-    
+
     layer_type_enum = postgresql.ENUM(
         'SYSTEM', 'ORGANIZATION', 'TEAM', 'USER',
         name='layertype',
         create_type=False
     )
-    
+
     # Create AccessLevel enum idempotently
     op.execute("""
     DO $$ BEGIN
@@ -49,7 +47,7 @@ def upgrade() -> None:
         name='accesslevel',
         create_type=False
     )
-    
+
     # Create layers table
     op.create_table(
         'layers',
@@ -59,17 +57,17 @@ def upgrade() -> None:
         sa.Column('color', sa.String(50), server_default='slate'),
         sa.Column('created_at', sa.DateTime(), server_default=sa.func.now()),
     )
-    
+
     # Create layer_permissions table
     op.create_table(
         'layer_permissions',
         sa.Column('id', postgresql.UUID(as_uuid=False), primary_key=True),
-        sa.Column('layer_id', postgresql.UUID(as_uuid=False), 
+        sa.Column('layer_id', postgresql.UUID(as_uuid=False),
                   sa.ForeignKey('layers.id', ondelete='CASCADE'), nullable=False),
         sa.Column('role_pattern', sa.String(255), nullable=False),
         sa.Column('access_level', access_level_enum, nullable=False, server_default='READ'),
     )
-    
+
     # Create B-Tree index on role_pattern for fast lookups
     op.create_index(
         'ix_layer_permissions_role_pattern_btree',
@@ -77,7 +75,7 @@ def upgrade() -> None:
         ['role_pattern'],
         unique=False
     )
-    
+
     # Seed default system layer
     op.execute("""
         INSERT INTO layers (id, name, type, color)
@@ -89,7 +87,7 @@ def upgrade() -> None:
         )
         ON CONFLICT (name) DO NOTHING
     """)
-    
+
     # Seed default permission (everyone can read system public)
     op.execute("""
         INSERT INTO layer_permissions (id, layer_id, role_pattern, access_level)
@@ -106,7 +104,7 @@ def downgrade() -> None:
     # Drop tables
     op.drop_table('layer_permissions')
     op.drop_table('layers')
-    
+
     # Drop enums
     op.execute("DROP TYPE IF EXISTS accesslevel")
     op.execute("DROP TYPE IF EXISTS layertype")

@@ -1,6 +1,5 @@
 """
 User Layers API
-Phase 5-3: Enterprise Security & Governance
 
 Endpoints for users to discover their accessible Knowledge Layers and quotas.
 """
@@ -29,12 +28,12 @@ async def get_my_layers(
     """
     realm_access = payload.get("realm_access", {})
     roles = realm_access.get("roles", [])
-    
+
     layers = await layer_manager.resolve_layers_for_user(
         user_roles=roles,
         db=db
     )
-    
+
     return [LayerResponse.model_validate(l) for l in layers]
 
 @router.get(
@@ -54,15 +53,15 @@ async def get_my_private_layer(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User ID (sub) not found in token"
         )
-        
+
     username = payload.get("preferred_username", "unknown")
-        
+
     # Get or Create
     # We use create_private_layer_for_user which handles "get existing" inside
     layer = await layer_manager.create_private_layer_for_user(
-        user_id=user_id, 
-        username=username, 
+        user_id=user_id,
+        username=username,
         db=db
     )
-    
+
     return LayerResponse.model_validate(layer)
