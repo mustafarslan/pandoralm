@@ -490,16 +490,23 @@ class LanceDBStore:
         Federated Search: Queries both Workspace-Specific and Global knowledge tables.
         """
         import numpy as np
+        import concurrent.futures
         
-        # 1. Search Local Workspace Table
-        local_results = self._search_table(
-            workspace_id, query_embedding, top_k, document_ids, allowed_layers
-        )
-        
-        # 2. Search Global Table
-        global_results = self._search_table(
-            "global", query_embedding, top_k, document_ids, allowed_layers
-        )
+        # Helper for parallel execution
+        def run_search(w_id):
+            return self._search_table(
+                w_id, query_embedding, top_k, document_ids, allowed_layers
+            )
+
+        # Execute parallel searches
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            # Submit tasks
+            future_local = executor.submit(run_search, workspace_id)
+            future_global = executor.submit(run_search, "global")
+            
+            # Wait for results
+            local_results = future_local.result()
+            global_results = future_global.result()
         
         # 3. Merge and Sort
         combined = local_results + global_results

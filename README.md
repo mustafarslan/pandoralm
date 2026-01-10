@@ -1,6 +1,8 @@
-<p align="center">
-  <img src="./core/frontend/public/brand/logo-symbol.svg" alt="PandoraLM Symbol" width="7%">
-  <img src="./core/frontend/public/brand/logo-wordmark.svg" alt="PandoraLM" width="40%">
+<p align="center" style="background-color: white; padding: 20px; border-radius: 12px;">
+  <a href="https://github.com/your-org/pandoralm">
+    <img src="./core/frontend/public/brand/logo-symbol.svg" alt="PandoraLM Symbol" width="80" style="vertical-align:middle; margin-right: 16px;">
+    <img src="./core/frontend/public/brand/logo-wordmark.svg" alt="PandoraLM Wordmark" width="360" style="vertical-align:middle;">
+  </a>
 </p>
 
 <p align="center">

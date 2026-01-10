@@ -411,28 +411,37 @@ class GraphRAGIndexer:
         if progress_callback:
             progress_callback("extracting_entities", 0.1, "Extracting entities")
 
-        for i, chunk in enumerate(chunks):
+        import asyncio
+        import os
+        
+        # Concurrency limit from config (default 3 to avoid LLM rate limits)
+        GRAPHRAG_CONCURRENCY = int(os.getenv("GRAPHRAG_CONCURRENCY", "3"))
+        semaphore = asyncio.Semaphore(GRAPHRAG_CONCURRENCY)
+
+        async def extract_from_chunk_incremental(i: int, chunk: Dict[str, Any]) -> tuple:
+            """Extract entities and relationships from a single chunk with concurrency limit."""
             chunk_id = chunk.get("id", str(uuid.uuid4()))
             content = chunk.get("content", "")
 
             if not content.strip():
-                continue
+                return [], []
 
-            try:
-                # Extract entities
-                entities = await self.extractor.extract_entities(content, chunk_id)
-                all_entities.extend(entities)
+            chunk_entities = []
+            chunk_relationships = []
 
-                # Extract relationships
-                if entities:
-                    relationships = await self.extractor.extract_relationships(
-                        content, entities, chunk_id
-                    )
-                    all_relationships.extend(relationships)
+            async with semaphore:
+                try:
+                    # Extract entities
+                    chunk_entities = await self.extractor.extract_entities(content, chunk_id)
 
-            except Exception as e:
-                errors.append(f"Chunk {chunk_id}: {str(e)}")
-
+                    # Extract relationships if we have entities
+                    if chunk_entities:
+                        chunk_relationships = await self.extractor.extract_relationships(
+                            content, chunk_entities, chunk_id
+                        )
+                except Exception as e:
+                    errors.append(f"Chunk {chunk_id}: {str(e)}")
+            
             if progress_callback:
                 progress = 0.1 + (i + 1) / total_chunks * 0.4  # 10% to 50%
                 progress_callback(
@@ -440,6 +449,19 @@ class GraphRAGIndexer:
                     progress,
                     f"Processed {i + 1}/{total_chunks} chunks"
                 )
+
+            return chunk_entities, chunk_relationships
+
+        # Execute all chunk extractions in parallel
+        results = await asyncio.gather(*[
+            extract_from_chunk_incremental(i, chunk) 
+            for i, chunk in enumerate(chunks)
+        ])
+
+        # Aggregate results
+        for entities, relationships in results:
+            all_entities.extend(entities)
+            all_relationships.extend(relationships)
 
         if not all_entities:
             return IndexingResult(
