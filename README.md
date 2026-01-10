@@ -1,5 +1,5 @@
 <p align="center" style="background-color: white; padding: 20px; border-radius: 12px;">
- <img src="./core/frontend/public/brand/pandoralm.png" alt="PandoraLM Symbol" width="100%" style="vertical-align:middle">
+ <img src="./core/frontend/public/brand/pandoraLM.svg" alt="PandoraLM Symbol" width="100%" style="vertical-align:middle">
 </p>
 
 <p align="center">
